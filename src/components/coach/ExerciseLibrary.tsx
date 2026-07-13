@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,20 +10,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
-  EXERCISE_DESCRIPTION_MAX_LENGTH,
-  EXERCISE_MAX_TAGS,
-  EXERCISE_NAME_MAX_LENGTH,
   type Exercise,
   createExercise,
   loadExercises,
-  parseTagsInput,
   saveExercises,
   searchExercises,
   sortExercisesByName,
 } from "@/lib/coach-exercises";
+import { ExerciseFormDialog } from "./ExerciseFormDialog";
 
 export function ExerciseLibrary() {
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -106,7 +101,7 @@ export function ExerciseLibrary() {
         </ul>
       )}
 
-      <CreateExerciseDialog
+      <ExerciseFormDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         onCreate={handleCreate}
