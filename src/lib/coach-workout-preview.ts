@@ -40,17 +40,19 @@ export function initSessionResults(workout: ProgramWorkout): SessionResultsMap {
   const map: SessionResultsMap = {};
   for (const ex of workout.exercises) {
     for (const set of ex.sets) {
+      const isChallenge = set.setType === "challenge";
       map[resultKey(ex.id, set.id)] = {
         exerciseInstanceId: ex.id,
         setId: set.id,
         actualWeight: clampNonNegative(set.targetWeight ?? 0),
-        actualReps: clampNonNegative(set.targetReps ?? 0),
+        actualReps: isChallenge ? 0 : clampNonNegative(set.targetReps ?? 0),
         completed: false,
       };
     }
   }
   return map;
 }
+
 
 export function flattenSets(workout: ProgramWorkout): FlatSetRef[] {
   const flat: FlatSetRef[] = [];
