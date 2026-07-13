@@ -1086,9 +1086,10 @@ function RestPanel({
       {done && (
         <Button className="w-full max-w-xs" onClick={onDone}>
           <Pause className="h-4 w-4 rotate-90" aria-hidden="true" />
-          Start next set
+          {nextLabel}
         </Button>
       )}
+
     </div>
   );
 }
