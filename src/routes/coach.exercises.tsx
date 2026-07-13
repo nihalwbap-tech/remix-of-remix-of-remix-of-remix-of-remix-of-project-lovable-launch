@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ExerciseLibrary } from "@/components/coach/ExerciseLibrary";
 
 export const Route = createFileRoute("/coach/exercises")({
   head: () => ({
@@ -18,8 +19,7 @@ export const Route = createFileRoute("/coach/exercises")({
   component: ExerciseLibraryPage,
 });
 
-import { ExerciseLibrary } from "@/components/coach/ExerciseLibrary";
-
 function ExerciseLibraryPage() {
   return <ExerciseLibrary />;
 }
+
