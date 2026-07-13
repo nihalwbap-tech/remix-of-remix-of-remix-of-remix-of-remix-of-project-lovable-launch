@@ -1,23 +1,18 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   ArrowDown,
   ArrowUp,
+  Check,
+  Pencil,
   Plus,
   Search,
   Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,7 +25,9 @@ import {
 } from "@/components/ui/select";
 import {
   type Exercise,
+  createExercise,
   loadExercises,
+  saveExercises,
   searchExercises,
   sortExercisesByName,
 } from "@/lib/coach-exercises";
@@ -44,6 +41,7 @@ import {
   SET_TYPES,
   SET_TYPE_LABELS,
   type SetType,
+  WORKOUT_NAME_MAX_LENGTH,
   type WorkoutExercisePrescription,
   type WorkoutSetPrescription,
   createDefaultSet,
@@ -52,14 +50,9 @@ import {
   saveWorkouts,
   touchWorkout,
 } from "@/lib/coach-workouts";
+import { ExerciseFormDialog, type ExerciseFormValues } from "./ExerciseFormDialog";
 
-export function WorkoutBuilder({
-  programId,
-  workoutId,
-}: {
-  programId: string;
-  workoutId: string;
-}) {
+export function WorkoutBuilder({ programId, workoutId }: { programId: string; workoutId: string }) {
   const [workouts, setWorkouts] = useState<ProgramWorkout[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -86,9 +79,7 @@ export function WorkoutBuilder({
   if (!workout) return <WorkoutNotFound programId={programId} />;
 
   const update = (fn: (w: ProgramWorkout) => ProgramWorkout) => {
-    setWorkouts((prev) =>
-      prev.map((w) => (w.id === workoutId ? touchWorkout(fn(w)) : w)),
-    );
+    setWorkouts((prev) => prev.map((w) => (w.id === workoutId ? touchWorkout(fn(w)) : w)));
   };
 
   const addExercises = (ids: string[]) => {
@@ -126,6 +117,18 @@ export function WorkoutBuilder({
     }));
   };
 
+  const renameWorkout = (name: string) => {
+    update((w) => ({ ...w, name }));
+  };
+
+  const createExerciseInline = (input: ExerciseFormValues): Exercise => {
+    const created = createExercise(input);
+    const next = [...exercises, created];
+    saveExercises(next);
+    setExercises(next);
+    return created;
+  };
+
   return (
     <div className="space-y-6">
       <Link
@@ -138,7 +141,7 @@ export function WorkoutBuilder({
       </Link>
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{workout.name}</h1>
+        <WorkoutTitle name={workout.name} onRename={renameWorkout} />
         <p className="mt-1 text-xs text-muted-foreground">Changes save automatically.</p>
       </div>
 
@@ -175,12 +178,105 @@ export function WorkoutBuilder({
         </Button>
       )}
 
-      <ExercisePickerDialog
+      <ExercisePicker
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         exercises={exercises}
         onAdd={addExercises}
+        onCreateExercise={createExerciseInline}
       />
+    </div>
+  );
+}
+
+function WorkoutTitle({ name, onRename }: { name: string; onRename: (name: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setValue(name);
+  }, [editing, name]);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
+
+  const commit = () => {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      setError("Please enter a workout name.");
+      return;
+    }
+    if (trimmed.length > WORKOUT_NAME_MAX_LENGTH) {
+      setError(`Keep the name to ${WORKOUT_NAME_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+    if (trimmed !== name) onRename(trimmed);
+    setError(null);
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setValue(name);
+    setError(null);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <Input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              if (error) setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancel();
+              }
+            }}
+            maxLength={WORKOUT_NAME_MAX_LENGTH + 20}
+            aria-label="Workout name"
+            aria-invalid={error ? true : undefined}
+            className="h-10 text-xl font-semibold"
+          />
+          <Button size="icon" variant="ghost" onClick={commit} aria-label="Save name">
+            <Check className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={cancel} aria-label="Cancel rename">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
+        {error && (
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">{name}</h1>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setEditing(true)}
+        aria-label="Rename workout"
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <Pencil className="h-4 w-4" aria-hidden="true" />
+      </Button>
     </div>
   );
 }
@@ -203,6 +299,201 @@ function WorkoutNotFound({ programId }: { programId: string }) {
         </p>
       </div>
     </div>
+  );
+}
+
+function ExercisePicker({
+  open,
+  onOpenChange,
+  exercises,
+  onAdd,
+  onCreateExercise,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  exercises: Exercise[];
+  onAdd: (ids: string[]) => void;
+  onCreateExercise: (input: ExerciseFormValues) => Exercise;
+}) {
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [createOpen, setCreateOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      setQuery("");
+      setSelected([]);
+      setCreateOpen(false);
+    }
+  }, [open]);
+
+  const sorted = useMemo(() => sortExercisesByName(exercises), [exercises]);
+  const results = useMemo(() => searchExercises(sorted, query), [sorted, query]);
+  const exercisesById = useMemo(() => {
+    const m = new Map<string, Exercise>();
+    for (const e of exercises) m.set(e.id, e);
+    return m;
+  }, [exercises]);
+
+  const toggle = (id: string) => {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const handleAdd = () => {
+    if (selected.length === 0) return;
+    onAdd(selected);
+  };
+
+  const handleCreated = (input: ExerciseFormValues) => {
+    const created = onCreateExercise(input);
+    setSelected((prev) => (prev.includes(created.id) ? prev : [...prev, created.id]));
+    setCreateOpen(false);
+  };
+
+  const primaryLabel =
+    selected.length === 0
+      ? "Add exercises"
+      : selected.length === 1
+        ? "Add 1 exercise"
+        : `Add ${selected.length} exercises`;
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="flex h-[92dvh] w-full max-w-full flex-col gap-0 rounded-b-none border-0 p-0 top-auto bottom-0 left-0 translate-x-0 translate-y-0 sm:top-1/2 sm:left-1/2 sm:bottom-auto sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:border">
+          <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <DialogTitle className="text-base font-semibold">Add exercises</DialogTitle>
+            {/* Radix Dialog auto-provides a close button */}
+            <span className="w-8" aria-hidden="true" />
+          </div>
+
+          <div className="border-b border-border p-4">
+            <div className="relative">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden="true"
+              />
+              <Input
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search by name or tag"
+                aria-label="Search exercises"
+                className="pl-9"
+              />
+            </div>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {exercises.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                Your Exercise Library is empty. Create one below to get started.
+              </div>
+            ) : results.length === 0 ? (
+              <div className="p-6 text-center text-sm text-muted-foreground">
+                No exercises match.
+              </div>
+            ) : (
+              <ul role="list" className="divide-y divide-border">
+                {results.map((e) => {
+                  const isSelected = selected.includes(e.id);
+                  return (
+                    <li key={e.id}>
+                      <button
+                        type="button"
+                        onClick={() => toggle(e.id)}
+                        aria-pressed={isSelected}
+                        className={
+                          "flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset " +
+                          (isSelected
+                            ? "bg-primary/10"
+                            : "hover:bg-accent hover:text-accent-foreground")
+                        }
+                      >
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-medium text-foreground">
+                            {e.name}
+                          </div>
+                          {e.tags.length > 0 && (
+                            <ul className="mt-1.5 flex flex-wrap gap-1" aria-label="Tags">
+                              {e.tags.map((t) => (
+                                <li
+                                  key={t}
+                                  className="rounded-full border border-border bg-muted px-2 py-0.5 text-xs text-muted-foreground"
+                                >
+                                  {t}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <span
+                          aria-hidden="true"
+                          className={
+                            "mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border " +
+                            (isSelected
+                              ? "border-primary bg-primary text-primary-foreground"
+                              : "border-border")
+                          }
+                        >
+                          {isSelected && <Check className="h-3 w-3" aria-hidden="true" />}
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+
+          <div className="border-t border-border px-4 py-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setCreateOpen(true)}
+              className="w-full"
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+              Create new exercise
+            </Button>
+          </div>
+
+          <div className="border-t border-border bg-background px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            {selected.length > 0 && (
+              <ul className="mb-3 flex flex-wrap gap-1.5" aria-label="Selected exercises">
+                {selected.map((id) => {
+                  const ex = exercisesById.get(id);
+                  if (!ex) return null;
+                  return (
+                    <li key={id}>
+                      <button
+                        type="button"
+                        onClick={() => toggle(id)}
+                        className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        aria-label={`Remove ${ex.name}`}
+                      >
+                        <span className="max-w-[10rem] truncate">{ex.name}</span>
+                        <X className="h-3 w-3" aria-hidden="true" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            <Button
+              type="button"
+              onClick={handleAdd}
+              disabled={selected.length === 0}
+              className="w-full"
+            >
+              {primaryLabel}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ExerciseFormDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={handleCreated} />
+    </>
   );
 }
 
@@ -371,10 +662,7 @@ function SetRow({
 
       <div className="mt-2 grid grid-cols-2 gap-2">
         <div className="space-y-1">
-          <Label
-            htmlFor={`weight-${set.id}`}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Label htmlFor={`weight-${set.id}`} className="text-xs font-medium text-muted-foreground">
             Weight
           </Label>
           <Input
@@ -388,10 +676,7 @@ function SetRow({
           />
         </div>
         <div className="space-y-1">
-          <Label
-            htmlFor={`reps-${set.id}`}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Label htmlFor={`reps-${set.id}`} className="text-xs font-medium text-muted-foreground">
             Reps
           </Label>
           <Input
@@ -439,10 +724,7 @@ function SetRow({
           </Select>
         </div>
         <div className="space-y-1">
-          <Label
-            htmlFor={`rest-${set.id}`}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Label htmlFor={`rest-${set.id}`} className="text-xs font-medium text-muted-foreground">
             Rest (sec)
           </Label>
           <Input
@@ -471,135 +753,12 @@ function SetRow({
               step="1"
               min="1"
               value={set.challengeTargetReps ?? ""}
-              onChange={(e) =>
-                onChange({ challengeTargetReps: numberOrUndef(e.target.value) })
-              }
+              onChange={(e) => onChange({ challengeTargetReps: numberOrUndef(e.target.value) })}
               className="h-9"
             />
           </div>
         )}
       </div>
     </div>
-  );
-}
-
-function ExercisePickerDialog({
-  open,
-  onOpenChange,
-  exercises,
-  onAdd,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  exercises: Exercise[];
-  onAdd: (ids: string[]) => void;
-}) {
-  const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<string[]>([]);
-
-  useEffect(() => {
-    if (!open) {
-      setQuery("");
-      setSelected([]);
-    }
-  }, [open]);
-
-  const sorted = useMemo(() => sortExercisesByName(exercises), [exercises]);
-  const results = useMemo(() => searchExercises(sorted, query), [sorted, query]);
-
-  const toggle = (id: string) => {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-  };
-
-  const handleAdd = () => {
-    if (selected.length === 0) return;
-    onAdd(selected);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Add exercises</DialogTitle>
-          <DialogDescription>Select one or more from your library.</DialogDescription>
-        </DialogHeader>
-
-        {exercises.length === 0 ? (
-          <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Your Exercise Library is empty. Add exercises there first.
-          </div>
-        ) : (
-          <>
-            <div className="relative">
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden="true"
-              />
-              <Input
-                type="search"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search"
-                aria-label="Search exercises"
-                className="pl-9"
-              />
-            </div>
-            <ul
-              role="list"
-              className="max-h-72 divide-y divide-border overflow-y-auto rounded-md border border-border"
-            >
-              {results.length === 0 ? (
-                <li className="p-4 text-center text-sm text-muted-foreground">
-                  No exercises match.
-                </li>
-              ) : (
-                results.map((e) => {
-                  const isSelected = selected.includes(e.id);
-                  return (
-                    <li key={e.id}>
-                      <button
-                        type="button"
-                        onClick={() => toggle(e.id)}
-                        aria-pressed={isSelected}
-                        className={
-                          "flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset " +
-                          (isSelected
-                            ? "bg-primary/10 text-foreground"
-                            : "hover:bg-accent hover:text-accent-foreground")
-                        }
-                      >
-                        <span className="min-w-0 truncate font-medium">{e.name}</span>
-                        <span
-                          aria-hidden="true"
-                          className={
-                            "inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border " +
-                            (isSelected
-                              ? "border-primary bg-primary text-primary-foreground"
-                              : "border-border")
-                          }
-                        >
-                          {isSelected && (
-                            <span className="text-[10px] font-bold leading-none">✓</span>
-                          )}
-                        </span>
-                      </button>
-                    </li>
-                  );
-                })
-              )}
-            </ul>
-          </>
-        )}
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleAdd} disabled={selected.length === 0}>
-            Add {selected.length > 0 ? `(${selected.length})` : ""}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

@@ -11,7 +11,6 @@ export const EXERCISES_STORAGE_KEY = "no-more-copium:coach-exercises:v1";
 export const EXERCISE_NAME_MAX_LENGTH = 80;
 export const EXERCISE_DESCRIPTION_MAX_LENGTH = 500;
 export const EXERCISE_TAG_MAX_LENGTH = 32;
-export const EXERCISE_MAX_TAGS = 12;
 
 function isStringArray(v: unknown): v is string[] {
   return Array.isArray(v) && v.every((x) => typeof x === "string");
@@ -32,7 +31,6 @@ export function parseTagsInput(raw: string): string[] {
     if (seen.has(t)) continue;
     seen.add(t);
     result.push(t);
-    if (result.length >= EXERCISE_MAX_TAGS) break;
   }
   return result;
 }
