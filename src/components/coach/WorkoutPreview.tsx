@@ -816,6 +816,7 @@ function PerformPanel({
   ref_,
   def,
   result,
+  resetSignal,
   onWeight,
   onReps,
   onComplete,
@@ -825,6 +826,7 @@ function PerformPanel({
   ref_: FlatSetRef;
   def: Exercise | undefined;
   result: PreviewSetResult | undefined;
+  resetSignal: number;
   onWeight: (n: number) => void;
   onReps: (n: number) => void;
   onComplete: () => void;
@@ -834,7 +836,8 @@ function PerformPanel({
   const [challengeAttempt, setChallengeAttempt] = useState<number>(0);
   useEffect(() => {
     setChallengeAttempt(0);
-  }, [ref_.setId]);
+  }, [ref_.setId, resetSignal]);
+
 
   if (!result) return null;
 
