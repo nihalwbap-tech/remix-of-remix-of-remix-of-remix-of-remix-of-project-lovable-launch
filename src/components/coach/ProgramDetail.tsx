@@ -27,6 +27,7 @@ import {
   loadPrograms,
   savePrograms,
 } from "@/lib/coach-programs";
+import { ProgramWorkoutsSection } from "./ProgramWorkoutsSection";
 
 const WEEKDAYS: Weekday[] = [
   "sunday",
@@ -89,6 +90,7 @@ export function ProgramDetail({ programId }: { programId: string }) {
         <FirstDaySelector value={program.firstDayOfWeek} onChange={setFirstDayOfWeek} />
         <DayRow program={program} onAssign={assignDay} onClear={clearDay} />
       </div>
+      <ProgramWorkoutsSection programId={programId} />
     </div>
   );
 }
