@@ -76,13 +76,14 @@ export function ProgramWorkoutsSection({ programId }: { programId: string }) {
       ) : (
         <ul role="list" className="divide-y divide-border rounded-lg border border-border">
           {programWorkouts.map((w) => (
-            <li
-              key={w.id}
-              className="flex items-center justify-between gap-3 px-4 py-3"
-            >
-              <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+            <li key={w.id} className="flex items-center gap-1 pr-2">
+              <Link
+                to="/coach/programs/$programId/workouts/$workoutId"
+                params={{ programId, workoutId: w.id }}
+                className="min-w-0 flex-1 truncate px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+              >
                 {w.name}
-              </span>
+              </Link>
               <Button
                 variant="ghost"
                 size="icon"
