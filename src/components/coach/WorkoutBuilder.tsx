@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { hasAnyValidSet } from "@/lib/coach-workout-preview";
+import { PlayCircle } from "lucide-react";
 import {
   ArrowLeft,
   ArrowDown,
