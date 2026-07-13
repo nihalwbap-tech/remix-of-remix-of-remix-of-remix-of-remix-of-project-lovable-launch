@@ -27,6 +27,7 @@ import {
   loadPrograms,
   savePrograms,
 } from "@/lib/coach-programs";
+import { ProgramWorkoutsSection } from "./ProgramWorkoutsSection";
 
 const WEEKDAYS: Weekday[] = [
   "sunday",
