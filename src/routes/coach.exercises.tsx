@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { ExerciseLibrary } from "@/components/coach/ExerciseLibrary";
 
 export const Route = createFileRoute("/coach/exercises")({
   head: () => ({
@@ -19,15 +20,6 @@ export const Route = createFileRoute("/coach/exercises")({
 });
 
 function ExerciseLibraryPage() {
-  return (
-    <section>
-      <h1 className="text-2xl font-semibold tracking-tight text-foreground">Exercise Library</h1>
-      <div className="mt-10 rounded-lg border border-dashed border-border p-10 text-center">
-        <h2 className="text-base font-medium text-foreground">No exercises yet</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Exercises and tags will be added in the next exercise-library phase.
-        </p>
-      </div>
-    </section>
-  );
+  return <ExerciseLibrary />;
 }
+
