@@ -22,4 +22,3 @@ export const Route = createFileRoute("/coach/exercises")({
 function ExerciseLibraryPage() {
   return <ExerciseLibrary />;
 }
-
