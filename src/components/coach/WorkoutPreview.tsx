@@ -99,13 +99,7 @@ function resultsReducer(state: SessionResultsMap, action: Action): SessionResult
   }
 }
 
-export function WorkoutPreview({
-  programId,
-  workoutId,
-}: {
-  programId: string;
-  workoutId: string;
-}) {
+export function WorkoutPreview({ programId, workoutId }: { programId: string; workoutId: string }) {
   const navigate = useNavigate();
   const [workout, setWorkout] = useState<ProgramWorkout | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -149,13 +143,7 @@ export function WorkoutPreview({
     );
   }
 
-  return (
-    <PreviewSession
-      workout={workout}
-      exercises={exercises}
-      onExit={goBack}
-    />
-  );
+  return <PreviewSession workout={workout} exercises={exercises} onExit={goBack} />;
 }
 
 function PreviewSession({
@@ -340,9 +328,7 @@ function ModeChooser({
           Previewing
         </p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">{workoutName}</h1>
-        <p className="mt-6 text-sm text-foreground">
-          How do you want to preview this workout?
-        </p>
+        <p className="mt-6 text-sm text-foreground">How do you want to preview this workout?</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -406,9 +392,7 @@ function PreviewHeader({
       <div className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h1 className="truncate text-base font-semibold">{title}</h1>
-          {subtitle && (
-            <p className="truncate text-xs text-muted-foreground">{subtitle}</p>
-          )}
+          {subtitle && <p className="truncate text-xs text-muted-foreground">{subtitle}</p>}
         </div>
         <div className="flex items-center gap-2">
           <span
@@ -418,12 +402,7 @@ function PreviewHeader({
             {formatElapsed(elapsed)}
           </span>
           {right}
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onExit}
-            aria-label="Exit preview"
-          >
+          <Button variant="ghost" size="icon" onClick={onExit} aria-label="Exit preview">
             <X className="h-4 w-4" aria-hidden="true" />
           </Button>
         </div>
@@ -558,9 +537,7 @@ function ClassicSetRow({
       }
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-muted-foreground">
-          Set {setIndex + 1}
-        </span>
+        <span className="text-xs font-medium text-muted-foreground">Set {setIndex + 1}</span>
         <Button
           type="button"
           size="sm"
@@ -568,7 +545,9 @@ function ClassicSetRow({
           onClick={onToggle}
           aria-pressed={result.completed}
           aria-label={
-            result.completed ? `Mark set ${setIndex + 1} incomplete` : `Complete set ${setIndex + 1}`
+            result.completed
+              ? `Mark set ${setIndex + 1} incomplete`
+              : `Complete set ${setIndex + 1}`
           }
           className="h-8"
         >
@@ -744,8 +723,7 @@ function GuidedMode({
             const target = challengeTargetFor(currentRef.set);
             dispatch({ type: "add-challenge-reps", key, reps, target });
             const restSec = restSecondsFor(currentRef.set);
-            const willBeDone =
-              (currentResult?.actualReps ?? 0) + clampNonNegative(reps) >= target;
+            const willBeDone = (currentResult?.actualReps ?? 0) + clampNonNegative(reps) >= target;
             if (willBeDone) {
               const nextIdx = findNextIncomplete(flat, results, index + 1);
               if (nextIdx >= flat.length) {
@@ -773,11 +751,7 @@ function GuidedMode({
   );
 }
 
-function findNextIncomplete(
-  flat: FlatSetRef[],
-  results: SessionResultsMap,
-  from: number,
-): number {
+function findNextIncomplete(flat: FlatSetRef[], results: SessionResultsMap, from: number): number {
   for (let i = from; i < flat.length; i += 1) {
     const r = results[resultKey(flat[i].exerciseInstanceId, flat[i].setId)];
     if (!r?.completed) return i;
@@ -845,9 +819,7 @@ function PerformPanel({
           {def ? def.name : "Unknown exercise"}
         </h2>
         {exercise.notes && (
-          <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">
-            {exercise.notes}
-          </p>
+          <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">{exercise.notes}</p>
         )}
         {chips.length > 0 && (
           <ul className="mt-3 flex flex-wrap gap-1" aria-label="Prescription">
@@ -1031,9 +1003,7 @@ function RestPanel({
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-6 p-6 text-center">
-      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Rest
-      </p>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Rest</p>
       <div
         className="text-6xl font-semibold tabular-nums"
         role="timer"
@@ -1054,17 +1024,11 @@ function RestPanel({
       </div>
       <p className="text-sm text-muted-foreground">{nextInfo}</p>
       <div className="flex flex-wrap items-center justify-center gap-2">
-        <Button
-          variant="outline"
-          onClick={() => setRemaining((r) => clampNonNegative(r - 15))}
-        >
+        <Button variant="outline" onClick={() => setRemaining((r) => clampNonNegative(r - 15))}>
           <Minus className="h-4 w-4" aria-hidden="true" />
           15 sec
         </Button>
-        <Button
-          variant="outline"
-          onClick={() => setRemaining((r) => r + 15)}
-        >
+        <Button variant="outline" onClick={() => setRemaining((r) => r + 15)}>
           <Plus className="h-4 w-4" aria-hidden="true" />
           15 sec
         </Button>

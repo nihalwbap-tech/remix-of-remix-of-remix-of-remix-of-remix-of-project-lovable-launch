@@ -1,9 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { WorkoutPreview } from "@/components/coach/WorkoutPreview";
 
-export const Route = createFileRoute(
-  "/coach/programs/$programId/workouts/$workoutId/preview",
-)({
+export const Route = createFileRoute("/coach/programs/$programId/workouts/$workoutId/preview")({
   head: () => ({
     meta: [
       { title: "Preview workout — No More Copium" },

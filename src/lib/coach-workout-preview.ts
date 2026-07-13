@@ -117,10 +117,7 @@ export function computeSummary(
   return { completedSets, totalReps, totalVolume };
 }
 
-export function hasAnyProgress(
-  workout: ProgramWorkout,
-  results: SessionResultsMap,
-): boolean {
+export function hasAnyProgress(workout: ProgramWorkout, results: SessionResultsMap): boolean {
   for (const ex of workout.exercises) {
     for (const set of ex.sets) {
       const key = resultKey(ex.id, set.id);
@@ -135,10 +132,7 @@ export function hasAnyProgress(
   return false;
 }
 
-export function firstIncompleteIndex(
-  flat: FlatSetRef[],
-  results: SessionResultsMap,
-): number {
+export function firstIncompleteIndex(flat: FlatSetRef[], results: SessionResultsMap): number {
   for (let i = 0; i < flat.length; i += 1) {
     const r = results[resultKey(flat[i].exerciseInstanceId, flat[i].setId)];
     if (!r?.completed) return i;
