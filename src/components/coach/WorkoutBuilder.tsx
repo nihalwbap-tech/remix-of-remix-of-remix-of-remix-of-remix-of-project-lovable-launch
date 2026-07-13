@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   ArrowLeft,
   ArrowDown,
   ArrowUp,
+  Check,
+  Pencil,
   Plus,
   Search,
   Trash2,
@@ -13,9 +15,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -30,7 +29,9 @@ import {
 } from "@/components/ui/select";
 import {
   type Exercise,
+  createExercise,
   loadExercises,
+  saveExercises,
   searchExercises,
   sortExercisesByName,
 } from "@/lib/coach-exercises";
@@ -44,6 +45,7 @@ import {
   SET_TYPES,
   SET_TYPE_LABELS,
   type SetType,
+  WORKOUT_NAME_MAX_LENGTH,
   type WorkoutExercisePrescription,
   type WorkoutSetPrescription,
   createDefaultSet,
@@ -52,6 +54,7 @@ import {
   saveWorkouts,
   touchWorkout,
 } from "@/lib/coach-workouts";
+import { ExerciseFormDialog, type ExerciseFormValues } from "./ExerciseFormDialog";
 
 export function WorkoutBuilder({
   programId,
@@ -126,6 +129,18 @@ export function WorkoutBuilder({
     }));
   };
 
+  const renameWorkout = (name: string) => {
+    update((w) => ({ ...w, name }));
+  };
+
+  const createExerciseInline = (input: ExerciseFormValues): Exercise => {
+    const created = createExercise(input);
+    const next = [...exercises, created];
+    saveExercises(next);
+    setExercises(next);
+    return created;
+  };
+
   return (
     <div className="space-y-6">
       <Link
@@ -138,7 +153,7 @@ export function WorkoutBuilder({
       </Link>
 
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">{workout.name}</h1>
+        <WorkoutTitle name={workout.name} onRename={renameWorkout} />
         <p className="mt-1 text-xs text-muted-foreground">Changes save automatically.</p>
       </div>
 
@@ -175,12 +190,111 @@ export function WorkoutBuilder({
         </Button>
       )}
 
-      <ExercisePickerDialog
+      <ExercisePicker
         open={pickerOpen}
         onOpenChange={setPickerOpen}
         exercises={exercises}
         onAdd={addExercises}
+        onCreateExercise={createExerciseInline}
       />
+    </div>
+  );
+}
+
+function WorkoutTitle({
+  name,
+  onRename,
+}: {
+  name: string;
+  onRename: (name: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(name);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editing) setValue(name);
+  }, [editing, name]);
+
+  useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing]);
+
+  const commit = () => {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      setError("Please enter a workout name.");
+      return;
+    }
+    if (trimmed.length > WORKOUT_NAME_MAX_LENGTH) {
+      setError(`Keep the name to ${WORKOUT_NAME_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+    if (trimmed !== name) onRename(trimmed);
+    setError(null);
+    setEditing(false);
+  };
+
+  const cancel = () => {
+    setValue(name);
+    setError(null);
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <div className="space-y-1.5">
+        <div className="flex items-center gap-2">
+          <Input
+            ref={inputRef}
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              if (error) setError(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commit();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                cancel();
+              }
+            }}
+            maxLength={WORKOUT_NAME_MAX_LENGTH + 20}
+            aria-label="Workout name"
+            aria-invalid={error ? true : undefined}
+            className="h-10 text-xl font-semibold"
+          />
+          <Button size="icon" variant="ghost" onClick={commit} aria-label="Save name">
+            <Check className="h-4 w-4" aria-hidden="true" />
+          </Button>
+          <Button size="icon" variant="ghost" onClick={cancel} aria-label="Cancel rename">
+            <X className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
+        {error && (
+          <p role="alert" className="text-xs text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <h1 className="min-w-0 truncate text-2xl font-semibold tracking-tight">{name}</h1>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setEditing(true)}
+        aria-label="Rename workout"
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <Pencil className="h-4 w-4" aria-hidden="true" />
+      </Button>
     </div>
   );
 }
