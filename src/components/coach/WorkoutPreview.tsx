@@ -28,13 +28,13 @@ import {
   INTENSITY_LABELS,
   type ProgramWorkout,
   SET_TYPE_LABELS,
+  formatRepPrescription,
   loadWorkouts,
 } from "@/lib/coach-workouts";
 import {
   type FlatSetRef,
   type PreviewSetResult,
   type SessionResultsMap,
-  challengeTargetFor,
   clampNonNegative,
   computeSummary,
   firstIncompleteIndex,
@@ -53,7 +53,6 @@ type Action =
   | { type: "set-result"; key: string; patch: Partial<PreviewSetResult> }
   | { type: "toggle-complete"; key: string }
   | { type: "mark-complete"; key: string; actualReps?: number; actualWeight?: number }
-  | { type: "add-challenge-reps"; key: string; reps: number; target: number }
   | { type: "reset"; results: SessionResultsMap };
 
 function resultsReducer(state: SessionResultsMap, action: Action): SessionResultsMap {
@@ -82,16 +81,6 @@ function resultsReducer(state: SessionResultsMap, action: Action): SessionResult
           actualWeight: action.actualWeight ?? existing.actualWeight,
           completed: true,
         },
-      };
-    }
-    case "add-challenge-reps": {
-      const existing = state[action.key];
-      if (!existing) return state;
-      const nextReps = clampNonNegative(existing.actualReps + action.reps);
-      const done = nextReps >= action.target;
-      return {
-        ...state,
-        [action.key]: { ...existing, actualReps: nextReps, completed: done },
       };
     }
     case "reset":
@@ -525,7 +514,8 @@ function ClassicSetRow({
   const chips: string[] = [];
   chips.push(SET_TYPE_LABELS[set.setType]);
   if (set.intensity) chips.push(INTENSITY_LABELS[set.intensity]);
-  if (set.targetReps !== undefined) chips.push(`${set.targetReps} reps`);
+  const repPrescription = formatRepPrescription(set);
+  if (repPrescription) chips.push(repPrescription);
   if (set.targetWeight !== undefined) chips.push(`${set.targetWeight}`);
   if (set.restSeconds !== undefined) chips.push(`rest ${set.restSeconds}s`);
 
@@ -631,157 +621,91 @@ function GuidedMode({
   dispatch: React.Dispatch<Action>;
   elapsed: number;
   index: number;
-  setIndex: (i: number) => void;
+  setIndex: (index: number) => void;
   inRest: boolean;
-  setInRest: (b: boolean) => void;
+  setInRest: (inRest: boolean) => void;
   onSwitchClassic: () => void;
   onFinish: () => void;
   onExit: () => void;
 }) {
-  // If everything is done, jump to summary.
   useEffect(() => {
     if (index >= flat.length) onFinish();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
-  const [challengeResetSignal, setChallengeResetSignal] = useState(0);
-  const bumpChallengeReset = () => setChallengeResetSignal((n) => n + 1);
-
   if (index >= flat.length) return null;
-
-  const advance = () => {
-    const nextIdx = findNextIncomplete(flat, results, index + 1);
-    if (nextIdx >= flat.length) {
-      onFinish();
-      return;
-    }
-    setIndex(nextIdx);
-    setInRest(false);
-  };
 
   const currentRef = flat[index];
   const key = resultKey(currentRef.exerciseInstanceId, currentRef.setId);
   const currentResult = results[key];
-  const def = exercisesById.get(currentRef.exercise.exerciseId);
+  const definition = exercisesById.get(currentRef.exercise.exerciseId);
 
-  const rightHeader = (
-    <Button size="sm" variant="outline" onClick={onSwitchClassic}>
-      Classic
-    </Button>
-  );
-
-  const subtitle = `Set ${index + 1} of ${flat.length}`;
-
-  const resumeAfterRest = () => {
-    // Start search from current index so an incomplete challenge stays put.
-    const startFrom = currentResult?.completed ? index + 1 : index;
-    const nextIdx = findNextIncomplete(flat, results, startFrom);
-    if (nextIdx >= flat.length) {
+  const advance = () => {
+    const nextIndex = findNextIncomplete(flat, results, index + 1);
+    if (nextIndex >= flat.length) {
       onFinish();
       return;
     }
+    setIndex(nextIndex);
     setInRest(false);
-    if (nextIdx !== index) {
-      setIndex(nextIdx);
-    }
   };
-
-  const isChallengeInProgress =
-    currentRef.set.setType === "challenge" && !(currentResult?.completed ?? false);
-  const challengeTarget = challengeTargetFor(currentRef.set);
-  const challengeRemaining = Math.max(
-    0,
-    challengeTarget - clampNonNegative(currentResult?.actualReps ?? 0),
-  );
-  const restNextInfo = isChallengeInProgress
-    ? `Same challenge continues · ${challengeRemaining} rep${challengeRemaining === 1 ? "" : "s"} to go`
-    : describeNext(flat, results, index, exercisesById);
 
   return (
     <>
       <PreviewHeader
         title={workout.name}
-        subtitle={subtitle}
+        subtitle={`Set ${index + 1} of ${flat.length}`}
         elapsed={elapsed}
-        right={rightHeader}
+        right={
+          <Button size="sm" variant="outline" onClick={onSwitchClassic}>
+            Classic
+          </Button>
+        }
         onExit={onExit}
       />
       {inRest ? (
         <RestPanel
           restSeconds={restSecondsFor(currentRef.set)}
-          nextInfo={restNextInfo}
-          nextLabel={isChallengeInProgress ? "Start next attempt" : "Start next set"}
-          onDone={resumeAfterRest}
-          onSkip={resumeAfterRest}
+          nextInfo={describeNext(flat, results, index, exercisesById)}
+          onDone={advance}
+          onSkip={advance}
         />
       ) : (
         <PerformPanel
           ref_={currentRef}
-          def={def}
+          def={definition}
           result={currentResult}
-          resetSignal={challengeResetSignal}
-          onWeight={(v) =>
+          onWeight={(value) =>
             dispatch({
               type: "set-result",
               key,
-              patch: { actualWeight: clampNonNegative(v) },
+              patch: { actualWeight: clampNonNegative(value) },
             })
           }
-          onReps={(v) =>
+          onReps={(value) =>
             dispatch({
               type: "set-result",
               key,
-              patch: { actualReps: clampNonNegative(v) },
+              patch: { actualReps: clampNonNegative(value) },
             })
           }
           onComplete={() => {
-            if (currentRef.set.setType === "challenge") return; // handled inside
             dispatch({ type: "mark-complete", key });
-            const restSec = restSecondsFor(currentRef.set);
-            const nextIdx = findNextIncomplete(flat, results, index + 1);
-            if (nextIdx >= flat.length) {
+            const nextIndex = findNextIncomplete(flat, results, index + 1);
+            if (nextIndex >= flat.length) {
               onFinish();
               return;
             }
-            if (restSec > 0) {
-              setInRest(true);
-            } else {
-              setIndex(nextIdx);
-            }
-          }}
-          onLogChallengeAttempt={(reps) => {
-            const target = challengeTargetFor(currentRef.set);
-            const addReps = clampNonNegative(reps);
-            const cumulative = clampNonNegative(currentResult?.actualReps ?? 0) + addReps;
-            const willBeDone = cumulative >= target;
-            dispatch({ type: "add-challenge-reps", key, reps, target });
-            const restSec = restSecondsFor(currentRef.set);
-            if (willBeDone) {
-              if (restSec > 0) {
-                setInRest(true);
-                return;
-              }
-              const nextIdx = findNextIncomplete(flat, results, index + 1);
-              if (nextIdx >= flat.length) {
-                onFinish();
-                return;
-              }
-              setIndex(nextIdx);
-              return;
-            }
-            // Not done — stay on this challenge set and reset the attempt input.
-            bumpChallengeReset();
-            if (restSec > 0) {
-              setInRest(true);
-            }
+            if (restSecondsFor(currentRef.set) > 0) setInRest(true);
+            else setIndex(nextIndex);
           }}
           onSkip={() => {
-            const nextIdx = findNextIncomplete(flat, results, index + 1);
-            if (nextIdx >= flat.length) {
+            const nextIndex = findNextIncomplete(flat, results, index + 1);
+            if (nextIndex >= flat.length) {
               onFinish();
               return;
             }
-            setIndex(nextIdx);
+            setIndex(nextIndex);
             setInRest(false);
           }}
         />
@@ -815,38 +739,26 @@ function PerformPanel({
   ref_,
   def,
   result,
-  resetSignal,
   onWeight,
   onReps,
   onComplete,
-  onLogChallengeAttempt,
   onSkip,
 }: {
   ref_: FlatSetRef;
   def: Exercise | undefined;
   result: PreviewSetResult | undefined;
-  resetSignal: number;
-  onWeight: (n: number) => void;
-  onReps: (n: number) => void;
+  onWeight: (number: number) => void;
+  onReps: (number: number) => void;
   onComplete: () => void;
-  onLogChallengeAttempt: (reps: number) => void;
   onSkip: () => void;
 }) {
-  const [challengeAttempt, setChallengeAttempt] = useState<number>(0);
-  useEffect(() => {
-    setChallengeAttempt(0);
-  }, [ref_.setId, resetSignal]);
-
   if (!result) return null;
 
   const { exercise, set, exerciseIndex, setIndex, totalSetsInExercise } = ref_;
-  const isChallenge = set.setType === "challenge";
-  const challengeTarget = challengeTargetFor(set);
-
-  const chips: string[] = [];
-  chips.push(SET_TYPE_LABELS[set.setType]);
+  const chips: string[] = [SET_TYPE_LABELS[set.setType]];
   if (set.intensity) chips.push(INTENSITY_LABELS[set.intensity]);
-  if (set.targetReps !== undefined) chips.push(`${set.targetReps} target reps`);
+  const repPrescription = formatRepPrescription(set);
+  if (repPrescription) chips.push(repPrescription);
   if (set.targetWeight !== undefined) chips.push(`${set.targetWeight} target`);
   if (set.restSeconds !== undefined) chips.push(`rest ${set.restSeconds}s`);
 
@@ -862,92 +774,45 @@ function PerformPanel({
         {exercise.notes && (
           <p className="mt-2 whitespace-pre-line text-sm text-muted-foreground">{exercise.notes}</p>
         )}
-        {chips.length > 0 && (
-          <ul className="mt-3 flex flex-wrap gap-1" aria-label="Prescription">
-            {chips.map((c) => (
-              <li
-                key={c}
-                className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground"
-              >
-                {c}
-              </li>
-            ))}
-          </ul>
-        )}
+        <ul className="mt-3 flex flex-wrap gap-1" aria-label="Prescription">
+          {chips.map((chip) => (
+            <li
+              key={chip}
+              className="rounded-full border border-border bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide text-muted-foreground"
+            >
+              {chip}
+            </li>
+          ))}
+        </ul>
       </div>
 
-      {isChallenge ? (
-        <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              Challenge progress
-            </p>
-            <p className="mt-1 text-3xl font-semibold tabular-nums">
-              {result.actualReps}
-              <span className="text-lg text-muted-foreground"> / {challengeTarget}</span>
-            </p>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="chal-weight" className="text-xs text-muted-foreground">
-              Actual weight
-            </Label>
-            <Input
-              id="chal-weight"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
-              value={result.actualWeight}
-              onChange={(e) => onWeight(Number(e.target.value))}
-              className="h-11 text-base"
-            />
-          </div>
-          <RepsStepper
-            id="chal-reps"
-            label="Attempt reps"
-            value={challengeAttempt}
-            onChange={setChallengeAttempt}
+      <div className="space-y-3 rounded-lg border border-border bg-card p-4">
+        <div className="space-y-1.5">
+          <Label htmlFor={`guided-weight-${set.id}`} className="text-xs text-muted-foreground">
+            Actual weight
+          </Label>
+          <Input
+            id={`guided-weight-${set.id}`}
+            type="number"
+            inputMode="decimal"
+            min="0"
+            step="any"
+            value={result.actualWeight}
+            onChange={(event) => onWeight(Number(event.target.value))}
+            className="h-11 text-base"
           />
-          <Button
-            className="w-full"
-            onClick={() => {
-              if (challengeAttempt <= 0) return;
-              onLogChallengeAttempt(challengeAttempt);
-            }}
-            disabled={challengeAttempt <= 0}
-          >
-            Log attempt
-          </Button>
         </div>
-      ) : (
-        <div className="space-y-3 rounded-lg border border-border bg-card p-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="perf-weight" className="text-xs text-muted-foreground">
-              Actual weight
-            </Label>
-            <Input
-              id="perf-weight"
-              type="number"
-              inputMode="decimal"
-              min="0"
-              step="any"
-              value={result.actualWeight}
-              onChange={(e) => onWeight(Number(e.target.value))}
-              className="h-11 text-base"
-            />
-          </div>
-          <RepsStepper
-            id="perf-reps"
-            label="Actual reps"
-            value={result.actualReps}
-            onChange={onReps}
-          />
-          <Button className="w-full" onClick={onComplete}>
-            <Check className="h-4 w-4" aria-hidden="true" />
-            Complete set
-          </Button>
-        </div>
-      )}
+        <RepsStepper
+          id={`guided-reps-${set.id}`}
+          label="Actual reps"
+          value={result.actualReps}
+          onChange={onReps}
+        />
+        <Button className="w-full" onClick={onComplete}>
+          <Check className="h-4 w-4" aria-hidden="true" />
+          Complete set
+        </Button>
+      </div>
 
       <Button variant="ghost" onClick={onSkip} className="self-center">
         <SkipForward className="h-4 w-4" aria-hidden="true" />

@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ButtonHTMLAttributes } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { hasAnyValidSet } from "@/lib/coach-workout-preview";
 import {
   ArrowLeft,
-  ArrowDown,
-  ArrowUp,
   Check,
+  GripVertical,
   Pencil,
   PlayCircle,
   Plus,
@@ -34,7 +33,6 @@ import {
   sortExercisesByName,
 } from "@/lib/coach-exercises";
 import {
-  DEFAULT_CHALLENGE_TARGET_REPS,
   EXERCISE_NOTES_MAX_LENGTH,
   INTENSITIES,
   INTENSITY_LABELS,
@@ -52,7 +50,10 @@ import {
   saveWorkouts,
   touchWorkout,
 } from "@/lib/coach-workouts";
+import { useLongPressReorder } from "@/hooks/use-long-press-reorder";
+import { cn } from "@/lib/utils";
 import { ExerciseFormDialog, type ExerciseFormValues } from "./ExerciseFormDialog";
+import { RestDurationPicker } from "./RestDurationPicker";
 
 export function WorkoutBuilder({ programId, workoutId }: { programId: string; workoutId: string }) {
   const [workouts, setWorkouts] = useState<ProgramWorkout[]>([]);
@@ -78,6 +79,26 @@ export function WorkoutBuilder({ programId, workoutId }: { programId: string; wo
     return m;
   }, [exercises]);
 
+  const reorderExercise = (activeId: string, overId: string) => {
+    setWorkouts((previous) =>
+      previous.map((candidate) => {
+        if (candidate.id !== workoutId) return candidate;
+        const from = candidate.exercises.findIndex((exercise) => exercise.id === activeId);
+        const to = candidate.exercises.findIndex((exercise) => exercise.id === overId);
+        if (from < 0 || to < 0 || from === to) return candidate;
+        const reordered = [...candidate.exercises];
+        const [moved] = reordered.splice(from, 1);
+        reordered.splice(to, 0, moved);
+        return touchWorkout({ ...candidate, exercises: reordered });
+      }),
+    );
+  };
+
+  const reorder = useLongPressReorder({
+    itemIds: workout?.exercises.map((exercise) => exercise.id) ?? [],
+    onReorder: reorderExercise,
+  });
+
   if (!hydrated) return null;
   if (!workout) return <WorkoutNotFound programId={programId} />;
 
@@ -95,19 +116,6 @@ export function WorkoutBuilder({ programId, workoutId }: { programId: string; wo
 
   const removeExercise = (instanceId: string) => {
     update((w) => ({ ...w, exercises: w.exercises.filter((e) => e.id !== instanceId) }));
-  };
-
-  const moveExercise = (instanceId: string, direction: -1 | 1) => {
-    update((w) => {
-      const idx = w.exercises.findIndex((e) => e.id === instanceId);
-      if (idx === -1) return w;
-      const target = idx + direction;
-      if (target < 0 || target >= w.exercises.length) return w;
-      const next = [...w.exercises];
-      const [moved] = next.splice(idx, 1);
-      next.splice(target, 0, moved);
-      return { ...w, exercises: next };
-    });
   };
 
   const updateExercise = (
@@ -172,21 +180,42 @@ export function WorkoutBuilder({ programId, workoutId }: { programId: string; wo
           </Button>
         </div>
       ) : (
-        <ul role="list" className="space-y-4">
-          {workout.exercises.map((instance, idx) => (
-            <li key={instance.id}>
-              <ExerciseCard
-                instance={instance}
-                exercise={exercisesById.get(instance.exerciseId)}
-                index={idx}
-                total={workout.exercises.length}
-                onMove={(dir) => moveExercise(instance.id, dir)}
-                onRemove={() => removeExercise(instance.id)}
-                onChange={(fn) => updateExercise(instance.id, fn)}
-              />
-            </li>
-          ))}
-        </ul>
+        <>
+          <p className="sr-only" aria-live="polite">
+            {reorder.announcement}
+          </p>
+          <ul role="list" className="space-y-4">
+            {workout.exercises.map((instance) => {
+              const exercise = exercisesById.get(instance.exerciseId);
+              return (
+                <li
+                  key={instance.id}
+                  ref={reorder.registerItem(instance.id)}
+                  style={reorder.getItemStyle(instance.id)}
+                  className={cn(
+                    "rounded-lg",
+                    reorder.activeId === instance.id && "shadow-xl",
+                    reorder.overId === instance.id &&
+                      reorder.activeId !== instance.id &&
+                      "ring-2 ring-primary/50 ring-offset-2 ring-offset-background",
+                  )}
+                >
+                  <ExerciseCard
+                    instance={instance}
+                    exercise={exercise}
+                    dragHandleProps={reorder.getHandleProps(
+                      instance.id,
+                      exercise?.name ?? "exercise",
+                    )}
+                    isDragging={reorder.activeId === instance.id}
+                    onRemove={() => removeExercise(instance.id)}
+                    onChange={(fn) => updateExercise(instance.id, fn)}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
 
       {workout.exercises.length > 0 && (
@@ -518,17 +547,15 @@ function ExercisePicker({
 function ExerciseCard({
   instance,
   exercise,
-  index,
-  total,
-  onMove,
+  dragHandleProps,
+  isDragging,
   onRemove,
   onChange,
 }: {
   instance: WorkoutExercisePrescription;
   exercise: Exercise | undefined;
-  index: number;
-  total: number;
-  onMove: (dir: -1 | 1) => void;
+  dragHandleProps: ButtonHTMLAttributes<HTMLButtonElement>;
+  isDragging: boolean;
   onRemove: () => void;
   onChange: (fn: (e: WorkoutExercisePrescription) => WorkoutExercisePrescription) => void;
 }) {
@@ -555,47 +582,40 @@ function ExerciseCard({
   };
 
   return (
-    <article className="rounded-lg border border-border bg-card p-4 text-card-foreground">
+    <article
+      className={cn(
+        "rounded-lg border border-border bg-card p-4 text-card-foreground transition-[border-color,box-shadow]",
+        isDragging && "border-primary/60 shadow-xl",
+      )}
+    >
       <header className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-base font-medium">
-            {exercise ? exercise.name : "Unknown exercise"}
-          </h3>
-          {!exercise && (
-            <p className="mt-0.5 text-xs text-destructive">
-              Missing from library. Remove or re-add.
-            </p>
-          )}
+        <div className="flex min-w-0 flex-1 items-start gap-2">
+          <button
+            {...dragHandleProps}
+            className="-ml-2 inline-flex h-9 w-9 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing"
+          >
+            <GripVertical className="h-5 w-5" aria-hidden="true" />
+          </button>
+          <div className="min-w-0 flex-1 pt-1.5">
+            <h3 className="truncate text-base font-medium">
+              {exercise ? exercise.name : "Unknown exercise"}
+            </h3>
+            {!exercise && (
+              <p className="mt-0.5 text-xs text-destructive">
+                Missing from library. Remove or re-add.
+              </p>
+            )}
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onMove(-1)}
-            disabled={index === 0}
-            aria-label="Move up"
-          >
-            <ArrowUp className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => onMove(1)}
-            disabled={index === total - 1}
-            aria-label="Move down"
-          >
-            <ArrowDown className="h-4 w-4" aria-hidden="true" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onRemove}
-            aria-label="Remove exercise"
-            className="text-muted-foreground hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" aria-hidden="true" />
-          </Button>
-        </div>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onRemove}
+          aria-label="Remove exercise"
+          className="shrink-0 text-muted-foreground hover:text-destructive"
+        >
+          <Trash2 className="h-4 w-4" aria-hidden="true" />
+        </Button>
       </header>
 
       <div className="mt-4 space-y-3">
@@ -648,19 +668,42 @@ function SetRow({
   onChange: (patch: Partial<WorkoutSetPrescription>) => void;
   onRemove: () => void;
 }) {
-  const numberOrUndef = (raw: string): number | undefined => {
+  const numberOrUndefined = (raw: string): number | undefined => {
     if (raw.trim() === "") return undefined;
-    const n = Number(raw);
-    return Number.isFinite(n) ? n : undefined;
+    const number = Number(raw);
+    return Number.isFinite(number) && number >= 0 ? number : undefined;
   };
 
-  const handleSetType = (v: SetType) => {
-    const patch: Partial<WorkoutSetPrescription> = { setType: v };
-    if (v === "challenge" && set.challengeTargetReps === undefined) {
-      patch.challengeTargetReps = DEFAULT_CHALLENGE_TARGET_REPS;
-    }
-    onChange(patch);
+  const positiveIntegerOrUndefined = (raw: string): number | undefined => {
+    if (raw.trim() === "") return undefined;
+    const number = Number(raw);
+    return Number.isInteger(number) && number >= 1 ? number : undefined;
   };
+
+  const handleSetType = (nextType: SetType) => {
+    if (nextType === "warmup") {
+      onChange({
+        setType: nextType,
+        targetReps: set.targetReps ?? set.repRangeMin,
+        repRangeMin: undefined,
+        repRangeMax: undefined,
+      });
+      return;
+    }
+    const minimum = set.repRangeMin ?? set.targetReps;
+    onChange({
+      setType: nextType,
+      targetReps: undefined,
+      repRangeMin: minimum,
+      repRangeMax: set.repRangeMax ?? (minimum === undefined ? undefined : minimum + 2),
+    });
+  };
+
+  const rangeInvalid =
+    set.setType !== "warmup" &&
+    set.repRangeMin !== undefined &&
+    set.repRangeMax !== undefined &&
+    set.repRangeMax <= set.repRangeMin;
 
   return (
     <div className="rounded-md border border-border bg-background p-3">
@@ -688,94 +731,115 @@ function SetRow({
             type="number"
             inputMode="decimal"
             step="any"
-            value={set.targetWeight ?? ""}
-            onChange={(e) => onChange({ targetWeight: numberOrUndef(e.target.value) })}
-            className="h-9"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label htmlFor={`reps-${set.id}`} className="text-xs font-medium text-muted-foreground">
-            Reps
-          </Label>
-          <Input
-            id={`reps-${set.id}`}
-            type="number"
-            inputMode="numeric"
-            step="1"
             min="0"
-            value={set.targetReps ?? ""}
-            onChange={(e) => onChange({ targetReps: numberOrUndef(e.target.value) })}
+            value={set.targetWeight ?? ""}
+            onChange={(event) => onChange({ targetWeight: numberOrUndefined(event.target.value) })}
             className="h-9"
           />
         </div>
+
         <div className="space-y-1">
           <Label className="text-xs font-medium text-muted-foreground">Type</Label>
-          <Select value={set.setType} onValueChange={(v) => handleSetType(v as SetType)}>
+          <Select value={set.setType} onValueChange={(value) => handleSetType(value as SetType)}>
             <SelectTrigger className="h-9" aria-label="Set type">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {SET_TYPES.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {SET_TYPE_LABELS[t]}
+              {SET_TYPES.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {SET_TYPE_LABELS[type]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+
+        {set.setType === "warmup" ? (
+          <div className="col-span-2 space-y-1">
+            <Label htmlFor={`reps-${set.id}`} className="text-xs font-medium text-muted-foreground">
+              Reps
+            </Label>
+            <Input
+              id={`reps-${set.id}`}
+              type="number"
+              inputMode="numeric"
+              step="1"
+              min="1"
+              value={set.targetReps ?? ""}
+              onChange={(event) =>
+                onChange({ targetReps: positiveIntegerOrUndefined(event.target.value) })
+              }
+              className="h-9"
+            />
+          </div>
+        ) : (
+          <div className="col-span-2 space-y-1">
+            <Label className="text-xs font-medium text-muted-foreground">Rep range</Label>
+            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
+              <Input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min="1"
+                value={set.repRangeMin ?? ""}
+                onChange={(event) =>
+                  onChange({ repRangeMin: positiveIntegerOrUndefined(event.target.value) })
+                }
+                aria-label="Minimum reps"
+                aria-invalid={rangeInvalid || undefined}
+                className="h-9 text-center"
+              />
+              <span className="text-muted-foreground" aria-hidden="true">
+                –
+              </span>
+              <Input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                min="1"
+                value={set.repRangeMax ?? ""}
+                onChange={(event) =>
+                  onChange({ repRangeMax: positiveIntegerOrUndefined(event.target.value) })
+                }
+                aria-label="Maximum reps"
+                aria-invalid={rangeInvalid || undefined}
+                className="h-9 text-center"
+              />
+            </div>
+            {rangeInvalid && (
+              <p role="alert" className="text-xs text-destructive">
+                Maximum reps must be greater than minimum reps.
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="space-y-1">
           <Label className="text-xs font-medium text-muted-foreground">Intensity</Label>
           <Select
             value={set.intensity ?? ""}
-            onValueChange={(v) => onChange({ intensity: v as Intensity })}
+            onValueChange={(value) => onChange({ intensity: value as Intensity })}
           >
             <SelectTrigger className="h-9" aria-label="Intensity">
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
-              {INTENSITIES.map((i) => (
-                <SelectItem key={i} value={i}>
-                  {INTENSITY_LABELS[i]}
+              {INTENSITIES.map((intensity) => (
+                <SelectItem key={intensity} value={intensity}>
+                  {INTENSITY_LABELS[intensity]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
+
         <div className="space-y-1">
-          <Label htmlFor={`rest-${set.id}`} className="text-xs font-medium text-muted-foreground">
-            Rest (sec)
-          </Label>
-          <Input
-            id={`rest-${set.id}`}
-            type="number"
-            inputMode="numeric"
-            step="15"
-            min="0"
-            value={set.restSeconds ?? ""}
-            onChange={(e) => onChange({ restSeconds: numberOrUndef(e.target.value) })}
-            className="h-9"
+          <Label className="text-xs font-medium text-muted-foreground">Rest</Label>
+          <RestDurationPicker
+            value={set.restSeconds}
+            onChange={(restSeconds) => onChange({ restSeconds })}
           />
         </div>
-        {set.setType === "challenge" && (
-          <div className="space-y-1">
-            <Label
-              htmlFor={`challenge-${set.id}`}
-              className="text-xs font-medium text-muted-foreground"
-            >
-              Challenge total
-            </Label>
-            <Input
-              id={`challenge-${set.id}`}
-              type="number"
-              inputMode="numeric"
-              step="1"
-              min="1"
-              value={set.challengeTargetReps ?? ""}
-              onChange={(e) => onChange({ challengeTargetReps: numberOrUndef(e.target.value) })}
-              className="h-9"
-            />
-          </div>
-        )}
       </div>
     </div>
   );
