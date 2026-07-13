@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +26,7 @@ export function ProgramWorkoutsSection({ programId }: { programId: string }) {
   const [hydrated, setHydrated] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ProgramWorkout | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setWorkouts(loadWorkouts());
@@ -42,8 +43,15 @@ export function ProgramWorkoutsSection({ programId }: { programId: string }) {
   );
 
   const handleCreate = (name: string) => {
-    setWorkouts((prev) => [...prev, createWorkout({ programId, name })]);
+    const workout = createWorkout({ programId, name });
+    const next = [...workouts, workout];
+    saveWorkouts(next);
+    setWorkouts(next);
     setDialogOpen(false);
+    void navigate({
+      to: "/coach/programs/$programId/workouts/$workoutId",
+      params: { programId, workoutId: workout.id },
+    });
   };
 
   const handleDelete = (id: string) => {
