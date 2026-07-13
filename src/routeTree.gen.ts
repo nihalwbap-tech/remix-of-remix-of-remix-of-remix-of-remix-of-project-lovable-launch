@@ -17,6 +17,7 @@ import { Route as CoachExercisesRouteImport } from './routes/coach.exercises'
 import { Route as CoachDashboardRouteImport } from './routes/coach.dashboard'
 import { Route as CoachProgramsIndexRouteImport } from './routes/coach.programs.index'
 import { Route as CoachProgramsProgramIdRouteImport } from './routes/coach.programs.$programId'
+import { Route as CoachProgramsProgramIdWorkoutsWorkoutIdRouteImport } from './routes/coach.programs.$programId.workouts.$workoutId'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -58,6 +59,12 @@ const CoachProgramsProgramIdRoute = CoachProgramsProgramIdRouteImport.update({
   path: '/$programId',
   getParentRoute: () => CoachProgramsRoute,
 } as any)
+const CoachProgramsProgramIdWorkoutsWorkoutIdRoute =
+  CoachProgramsProgramIdWorkoutsWorkoutIdRouteImport.update({
+    id: '/workouts/$workoutId',
+    path: '/workouts/$workoutId',
+    getParentRoute: () => CoachProgramsProgramIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -66,8 +73,9 @@ export interface FileRoutesByFullPath {
   '/coach/dashboard': typeof CoachDashboardRoute
   '/coach/exercises': typeof CoachExercisesRoute
   '/coach/programs': typeof CoachProgramsRouteWithChildren
-  '/coach/programs/$programId': typeof CoachProgramsProgramIdRoute
+  '/coach/programs/$programId': typeof CoachProgramsProgramIdRouteWithChildren
   '/coach/programs/': typeof CoachProgramsIndexRoute
+  '/coach/programs/$programId/workouts/$workoutId': typeof CoachProgramsProgramIdWorkoutsWorkoutIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -75,8 +83,9 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/coach/dashboard': typeof CoachDashboardRoute
   '/coach/exercises': typeof CoachExercisesRoute
-  '/coach/programs/$programId': typeof CoachProgramsProgramIdRoute
+  '/coach/programs/$programId': typeof CoachProgramsProgramIdRouteWithChildren
   '/coach/programs': typeof CoachProgramsIndexRoute
+  '/coach/programs/$programId/workouts/$workoutId': typeof CoachProgramsProgramIdWorkoutsWorkoutIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -86,8 +95,9 @@ export interface FileRoutesById {
   '/coach/dashboard': typeof CoachDashboardRoute
   '/coach/exercises': typeof CoachExercisesRoute
   '/coach/programs': typeof CoachProgramsRouteWithChildren
-  '/coach/programs/$programId': typeof CoachProgramsProgramIdRoute
+  '/coach/programs/$programId': typeof CoachProgramsProgramIdRouteWithChildren
   '/coach/programs/': typeof CoachProgramsIndexRoute
+  '/coach/programs/$programId/workouts/$workoutId': typeof CoachProgramsProgramIdWorkoutsWorkoutIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
     | '/coach/programs'
     | '/coach/programs/$programId'
     | '/coach/programs/'
+    | '/coach/programs/$programId/workouts/$workoutId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -109,6 +120,7 @@ export interface FileRouteTypes {
     | '/coach/exercises'
     | '/coach/programs/$programId'
     | '/coach/programs'
+    | '/coach/programs/$programId/workouts/$workoutId'
   id:
     | '__root__'
     | '/'
@@ -119,6 +131,7 @@ export interface FileRouteTypes {
     | '/coach/programs'
     | '/coach/programs/$programId'
     | '/coach/programs/'
+    | '/coach/programs/$programId/workouts/$workoutId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -185,16 +198,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CoachProgramsProgramIdRouteImport
       parentRoute: typeof CoachProgramsRoute
     }
+    '/coach/programs/$programId/workouts/$workoutId': {
+      id: '/coach/programs/$programId/workouts/$workoutId'
+      path: '/workouts/$workoutId'
+      fullPath: '/coach/programs/$programId/workouts/$workoutId'
+      preLoaderRoute: typeof CoachProgramsProgramIdWorkoutsWorkoutIdRouteImport
+      parentRoute: typeof CoachProgramsProgramIdRoute
+    }
   }
 }
 
+interface CoachProgramsProgramIdRouteChildren {
+  CoachProgramsProgramIdWorkoutsWorkoutIdRoute: typeof CoachProgramsProgramIdWorkoutsWorkoutIdRoute
+}
+
+const CoachProgramsProgramIdRouteChildren: CoachProgramsProgramIdRouteChildren =
+  {
+    CoachProgramsProgramIdWorkoutsWorkoutIdRoute:
+      CoachProgramsProgramIdWorkoutsWorkoutIdRoute,
+  }
+
+const CoachProgramsProgramIdRouteWithChildren =
+  CoachProgramsProgramIdRoute._addFileChildren(
+    CoachProgramsProgramIdRouteChildren,
+  )
+
 interface CoachProgramsRouteChildren {
-  CoachProgramsProgramIdRoute: typeof CoachProgramsProgramIdRoute
+  CoachProgramsProgramIdRoute: typeof CoachProgramsProgramIdRouteWithChildren
   CoachProgramsIndexRoute: typeof CoachProgramsIndexRoute
 }
 
 const CoachProgramsRouteChildren: CoachProgramsRouteChildren = {
-  CoachProgramsProgramIdRoute: CoachProgramsProgramIdRoute,
+  CoachProgramsProgramIdRoute: CoachProgramsProgramIdRouteWithChildren,
   CoachProgramsIndexRoute: CoachProgramsIndexRoute,
 }
 
