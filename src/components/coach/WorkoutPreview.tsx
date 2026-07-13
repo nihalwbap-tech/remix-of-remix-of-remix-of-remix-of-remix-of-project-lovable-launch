@@ -25,6 +25,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { type Exercise, loadExercises } from "@/lib/coach-exercises";
 import {
+  type WeightUnit,
+  getAllWeightUnits,
+  getWeightUnit,
+  loadCustomWeightUnits,
+} from "@/lib/coach-weight-units";
+import {
   INTENSITY_LABELS,
   type ProgramWorkout,
   SET_TYPE_LABELS,
@@ -92,6 +98,7 @@ export function WorkoutPreview({ programId, workoutId }: { programId: string; wo
   const navigate = useNavigate();
   const [workout, setWorkout] = useState<ProgramWorkout | null>(null);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [weightUnits, setWeightUnits] = useState<WeightUnit[]>([]);
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -99,6 +106,7 @@ export function WorkoutPreview({ programId, workoutId }: { programId: string; wo
     const found = all.find((w) => w.id === workoutId && w.programId === programId) ?? null;
     setWorkout(found);
     setExercises(loadExercises());
+    setWeightUnits(getAllWeightUnits(loadCustomWeightUnits()));
     setHydrated(true);
   }, [programId, workoutId]);
 
@@ -132,16 +140,25 @@ export function WorkoutPreview({ programId, workoutId }: { programId: string; wo
     );
   }
 
-  return <PreviewSession workout={workout} exercises={exercises} onExit={goBack} />;
+  return (
+    <PreviewSession
+      workout={workout}
+      exercises={exercises}
+      weightUnits={weightUnits}
+      onExit={goBack}
+    />
+  );
 }
 
 function PreviewSession({
   workout,
   exercises,
+  weightUnits,
   onExit,
 }: {
   workout: ProgramWorkout;
   exercises: Exercise[];
+  weightUnits: WeightUnit[];
   onExit: () => void;
 }) {
   const initialResults = useMemo(() => initSessionResults(workout), [workout]);
@@ -159,6 +176,10 @@ function PreviewSession({
     for (const e of exercises) m.set(e.id, e);
     return m;
   }, [exercises]);
+  const weightUnitsById = useMemo(
+    () => new Map(weightUnits.map((unit) => [unit.id, unit])),
+    [weightUnits],
+  );
 
   // shared elapsed timer
   useEffect(() => {
@@ -222,6 +243,7 @@ function PreviewSession({
         <ClassicMode
           workout={workout}
           exercisesById={exercisesById}
+          weightUnitsById={weightUnitsById}
           results={results}
           dispatch={dispatch}
           elapsed={elapsed}
@@ -235,6 +257,7 @@ function PreviewSession({
           workout={workout}
           flat={flat}
           exercisesById={exercisesById}
+          weightUnitsById={weightUnitsById}
           results={results}
           dispatch={dispatch}
           elapsed={elapsed}
@@ -250,6 +273,7 @@ function PreviewSession({
       {mode === "summary" && (
         <SummaryScreen
           workout={workout}
+          weightUnits={weightUnits}
           results={results}
           elapsed={elapsed}
           onAgain={restart}
@@ -403,6 +427,7 @@ function PreviewHeader({
 function ClassicMode({
   workout,
   exercisesById,
+  weightUnitsById,
   results,
   dispatch,
   elapsed,
@@ -412,6 +437,7 @@ function ClassicMode({
 }: {
   workout: ProgramWorkout;
   exercisesById: Map<string, Exercise>;
+  weightUnitsById: Map<string, WeightUnit>;
   results: SessionResultsMap;
   dispatch: React.Dispatch<Action>;
   elapsed: number;
@@ -462,6 +488,10 @@ function ClassicMode({
                       <ClassicSetRow
                         setIndex={setIdx}
                         set={set}
+                        weightUnit={
+                          weightUnitsById.get(set.weightUnitId) ??
+                          getWeightUnit([], set.weightUnitId)
+                        }
                         result={result}
                         onWeight={(v) =>
                           dispatch({
@@ -499,6 +529,7 @@ function ClassicMode({
 function ClassicSetRow({
   setIndex,
   set,
+  weightUnit,
   result,
   onWeight,
   onReps,
@@ -506,6 +537,7 @@ function ClassicSetRow({
 }: {
   setIndex: number;
   set: import("@/lib/coach-workouts").WorkoutSetPrescription;
+  weightUnit: WeightUnit;
   result: PreviewSetResult;
   onWeight: (n: number) => void;
   onReps: (n: number) => void;
@@ -516,7 +548,9 @@ function ClassicSetRow({
   if (set.intensity) chips.push(INTENSITY_LABELS[set.intensity]);
   const repPrescription = formatRepPrescription(set);
   if (repPrescription) chips.push(repPrescription);
-  if (set.targetWeight !== undefined) chips.push(`${set.targetWeight}`);
+  if (set.targetWeight !== undefined) {
+    chips.push(`${set.targetWeight} ${weightUnit.shortForm}`);
+  }
   if (set.restSeconds !== undefined) chips.push(`rest ${set.restSeconds}s`);
 
   return (
@@ -565,16 +599,21 @@ function ClassicSetRow({
           >
             Actual weight
           </Label>
-          <Input
-            id={`w-${result.setId}`}
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="any"
-            value={result.actualWeight}
-            onChange={(e) => onWeight(Number(e.target.value))}
-            className="h-9"
-          />
+          <div className="relative">
+            <Input
+              id={`w-${result.setId}`}
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="any"
+              value={result.actualWeight}
+              onChange={(e) => onWeight(Number(e.target.value))}
+              className="h-9 pr-12"
+            />
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted-foreground">
+              {weightUnit.shortForm}
+            </span>
+          </div>
         </div>
         <div className="space-y-1">
           <Label
@@ -603,6 +642,7 @@ function GuidedMode({
   workout,
   flat,
   exercisesById,
+  weightUnitsById,
   results,
   dispatch,
   elapsed,
@@ -617,6 +657,7 @@ function GuidedMode({
   workout: ProgramWorkout;
   flat: FlatSetRef[];
   exercisesById: Map<string, Exercise>;
+  weightUnitsById: Map<string, WeightUnit>;
   results: SessionResultsMap;
   dispatch: React.Dispatch<Action>;
   elapsed: number;
@@ -674,6 +715,10 @@ function GuidedMode({
         <PerformPanel
           ref_={currentRef}
           def={definition}
+          weightUnit={
+            weightUnitsById.get(currentRef.set.weightUnitId) ??
+            getWeightUnit([], currentRef.set.weightUnitId)
+          }
           result={currentResult}
           onWeight={(value) =>
             dispatch({
@@ -738,6 +783,7 @@ function describeNext(
 function PerformPanel({
   ref_,
   def,
+  weightUnit,
   result,
   onWeight,
   onReps,
@@ -746,6 +792,7 @@ function PerformPanel({
 }: {
   ref_: FlatSetRef;
   def: Exercise | undefined;
+  weightUnit: WeightUnit;
   result: PreviewSetResult | undefined;
   onWeight: (number: number) => void;
   onReps: (number: number) => void;
@@ -759,7 +806,9 @@ function PerformPanel({
   if (set.intensity) chips.push(INTENSITY_LABELS[set.intensity]);
   const repPrescription = formatRepPrescription(set);
   if (repPrescription) chips.push(repPrescription);
-  if (set.targetWeight !== undefined) chips.push(`${set.targetWeight} target`);
+  if (set.targetWeight !== undefined) {
+    chips.push(`${set.targetWeight} ${weightUnit.shortForm} target`);
+  }
   if (set.restSeconds !== undefined) chips.push(`rest ${set.restSeconds}s`);
 
   return (
@@ -791,16 +840,21 @@ function PerformPanel({
           <Label htmlFor={`guided-weight-${set.id}`} className="text-xs text-muted-foreground">
             Actual weight
           </Label>
-          <Input
-            id={`guided-weight-${set.id}`}
-            type="number"
-            inputMode="decimal"
-            min="0"
-            step="any"
-            value={result.actualWeight}
-            onChange={(event) => onWeight(Number(event.target.value))}
-            className="h-11 text-base"
-          />
+          <div className="relative">
+            <Input
+              id={`guided-weight-${set.id}`}
+              type="number"
+              inputMode="decimal"
+              min="0"
+              step="any"
+              value={result.actualWeight}
+              onChange={(event) => onWeight(Number(event.target.value))}
+              className="h-11 pr-12 text-base"
+            />
+            <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs font-medium text-muted-foreground">
+              {weightUnit.shortForm}
+            </span>
+          </div>
         </div>
         <RepsStepper
           id={`guided-reps-${set.id}`}
@@ -957,30 +1011,36 @@ function RestPanel({
 
 function SummaryScreen({
   workout,
+  weightUnits,
   results,
   elapsed,
   onAgain,
   onBack,
 }: {
   workout: ProgramWorkout;
+  weightUnits: WeightUnit[];
   results: SessionResultsMap;
   elapsed: number;
   onAgain: () => void;
   onBack: () => void;
 }) {
-  const { completedSets, totalReps, totalVolume } = useMemo(
+  const { completedSets, totalReps, volumeByUnitId } = useMemo(
     () => computeSummary(workout, results),
     [workout, results],
   );
+  const volume = Object.entries(volumeByUnitId)
+    .map(([unitId, value]) => {
+      const unit = getWeightUnit(weightUnits, unitId);
+      const formatted = value % 1 === 0 ? `${value}` : value.toFixed(1);
+      return `${formatted} ${unit.shortForm}`;
+    })
+    .join(" · ");
 
   const stats = [
     { label: "Duration", value: formatElapsed(elapsed) },
     { label: "Completed sets", value: `${completedSets}` },
     { label: "Total reps", value: `${totalReps}` },
-    {
-      label: "Total volume",
-      value: totalVolume % 1 === 0 ? `${totalVolume}` : totalVolume.toFixed(1),
-    },
+    { label: "Total volume", value: volume || "0" },
   ];
 
   return (
@@ -995,7 +1055,13 @@ function SummaryScreen({
         {stats.map((s) => (
           <div key={s.label} className="rounded-lg border border-border bg-card p-4">
             <dt className="text-xs text-muted-foreground">{s.label}</dt>
-            <dd className="mt-1 text-2xl font-semibold tabular-nums">{s.value}</dd>
+            <dd
+              className={`mt-1 font-semibold tabular-nums ${
+                s.label === "Total volume" ? "break-words text-lg" : "text-2xl"
+              }`}
+            >
+              {s.value}
+            </dd>
           </div>
         ))}
       </dl>

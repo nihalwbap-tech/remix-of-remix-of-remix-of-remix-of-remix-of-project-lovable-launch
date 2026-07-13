@@ -1,9 +1,12 @@
+import { DEFAULT_WEIGHT_UNIT_ID } from "./coach-weight-units";
+
 export type SetType = "warmup" | "normal" | "superset" | "alternating";
 export type Intensity = "2rir" | "1rir" | "failure";
 
 export type WorkoutSetPrescription = {
   id: string;
   targetWeight?: number;
+  weightUnitId: string;
   targetReps?: number;
   repRangeMin?: number;
   repRangeMax?: number;
@@ -107,6 +110,10 @@ function normalizeSet(value: unknown): WorkoutSetPrescription | null {
     id: raw.id,
     setType,
     targetWeight: nonNegativeNumber(raw.targetWeight),
+    weightUnitId:
+      typeof raw.weightUnitId === "string" && raw.weightUnitId.length > 0
+        ? raw.weightUnitId
+        : DEFAULT_WEIGHT_UNIT_ID,
     targetReps: setType === "warmup" ? (legacyExactReps ?? repRangeMin) : undefined,
     repRangeMin: setType === "warmup" ? undefined : repRangeMin,
     repRangeMax: setType === "warmup" ? undefined : repRangeMax,
@@ -222,6 +229,7 @@ export function createDefaultSet(previous?: WorkoutSetPrescription): WorkoutSetP
     setType: "normal",
     intensity: "2rir",
     targetWeight: 0,
+    weightUnitId: DEFAULT_WEIGHT_UNIT_ID,
     restSeconds: DEFAULT_REST_SECONDS,
   };
 }

@@ -51,13 +51,21 @@ import {
   touchWorkout,
 } from "@/lib/coach-workouts";
 import { useLongPressReorder } from "@/hooks/use-long-press-reorder";
+import {
+  type WeightUnit,
+  getAllWeightUnits,
+  loadCustomWeightUnits,
+  saveCustomWeightUnits,
+} from "@/lib/coach-weight-units";
 import { cn } from "@/lib/utils";
 import { ExerciseFormDialog, type ExerciseFormValues } from "./ExerciseFormDialog";
 import { RestDurationPicker } from "./RestDurationPicker";
+import { WeightInputWithUnit } from "./WeightInputWithUnit";
 
 export function WorkoutBuilder({ programId, workoutId }: { programId: string; workoutId: string }) {
   const [workouts, setWorkouts] = useState<ProgramWorkout[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [customWeightUnits, setCustomWeightUnits] = useState<WeightUnit[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const navigate = useNavigate();
@@ -65,12 +73,15 @@ export function WorkoutBuilder({ programId, workoutId }: { programId: string; wo
   useEffect(() => {
     setWorkouts(loadWorkouts());
     setExercises(loadExercises());
+    setCustomWeightUnits(loadCustomWeightUnits());
     setHydrated(true);
   }, []);
 
   useEffect(() => {
-    if (hydrated) saveWorkouts(workouts);
-  }, [workouts, hydrated]);
+    if (!hydrated) return;
+    saveWorkouts(workouts);
+    saveCustomWeightUnits(customWeightUnits);
+  }, [workouts, customWeightUnits, hydrated]);
 
   const workout = workouts.find((w) => w.id === workoutId && w.programId === programId);
   const exercisesById = useMemo(() => {
@@ -78,6 +89,7 @@ export function WorkoutBuilder({ programId, workoutId }: { programId: string; wo
     for (const e of exercises) m.set(e.id, e);
     return m;
   }, [exercises]);
+  const weightUnits = useMemo(() => getAllWeightUnits(customWeightUnits), [customWeightUnits]);
 
   const reorderExercise = (activeId: string, overId: string) => {
     setWorkouts((previous) =>
@@ -208,6 +220,10 @@ export function WorkoutBuilder({ programId, workoutId }: { programId: string; wo
                       exercise?.name ?? "exercise",
                     )}
                     isDragging={reorder.activeId === instance.id}
+                    weightUnits={weightUnits}
+                    onCreateWeightUnit={(unit) =>
+                      setCustomWeightUnits((previous) => [...previous, unit])
+                    }
                     onRemove={() => removeExercise(instance.id)}
                     onChange={(fn) => updateExercise(instance.id, fn)}
                   />
@@ -549,6 +565,8 @@ function ExerciseCard({
   exercise,
   dragHandleProps,
   isDragging,
+  weightUnits,
+  onCreateWeightUnit,
   onRemove,
   onChange,
 }: {
@@ -556,6 +574,8 @@ function ExerciseCard({
   exercise: Exercise | undefined;
   dragHandleProps: ButtonHTMLAttributes<HTMLButtonElement>;
   isDragging: boolean;
+  weightUnits: WeightUnit[];
+  onCreateWeightUnit: (unit: WeightUnit) => void;
   onRemove: () => void;
   onChange: (fn: (e: WorkoutExercisePrescription) => WorkoutExercisePrescription) => void;
 }) {
@@ -625,6 +645,8 @@ function ExerciseCard({
             index={i}
             set={set}
             canRemove={instance.sets.length > 1}
+            weightUnits={weightUnits}
+            onCreateWeightUnit={onCreateWeightUnit}
             onChange={(patch) => updateSet(set.id, patch)}
             onRemove={() => removeSet(set.id)}
           />
@@ -659,21 +681,19 @@ function SetRow({
   index,
   set,
   canRemove,
+  weightUnits,
+  onCreateWeightUnit,
   onChange,
   onRemove,
 }: {
   index: number;
   set: WorkoutSetPrescription;
   canRemove: boolean;
+  weightUnits: WeightUnit[];
+  onCreateWeightUnit: (unit: WeightUnit) => void;
   onChange: (patch: Partial<WorkoutSetPrescription>) => void;
   onRemove: () => void;
 }) {
-  const numberOrUndefined = (raw: string): number | undefined => {
-    if (raw.trim() === "") return undefined;
-    const number = Number(raw);
-    return Number.isFinite(number) && number >= 0 ? number : undefined;
-  };
-
   const positiveIntegerOrUndefined = (raw: string): number | undefined => {
     if (raw.trim() === "") return undefined;
     const number = Number(raw);
@@ -726,15 +746,14 @@ function SetRow({
           <Label htmlFor={`weight-${set.id}`} className="text-xs font-medium text-muted-foreground">
             Weight
           </Label>
-          <Input
+          <WeightInputWithUnit
             id={`weight-${set.id}`}
-            type="number"
-            inputMode="decimal"
-            step="any"
-            min="0"
-            value={set.targetWeight ?? ""}
-            onChange={(event) => onChange({ targetWeight: numberOrUndefined(event.target.value) })}
-            className="h-9"
+            value={set.targetWeight}
+            onValueChange={(targetWeight) => onChange({ targetWeight })}
+            unitId={set.weightUnitId}
+            units={weightUnits}
+            onUnitChange={(weightUnitId) => onChange({ weightUnitId })}
+            onCreateUnit={onCreateWeightUnit}
           />
         </div>
 

@@ -90,21 +90,22 @@ export function formatElapsed(seconds: number): string {
 export function computeSummary(
   workout: ProgramWorkout,
   results: SessionResultsMap,
-): { completedSets: number; totalReps: number; totalVolume: number } {
+): { completedSets: number; totalReps: number; volumeByUnitId: Record<string, number> } {
   let completedSets = 0;
   let totalReps = 0;
-  let totalVolume = 0;
+  const volumeByUnitId: Record<string, number> = {};
   for (const exercise of workout.exercises) {
     for (const set of exercise.sets) {
       const result = results[resultKey(exercise.id, set.id)];
       if (result?.completed) {
         completedSets += 1;
         totalReps += result.actualReps;
-        totalVolume += result.actualWeight * result.actualReps;
+        volumeByUnitId[set.weightUnitId] =
+          (volumeByUnitId[set.weightUnitId] ?? 0) + result.actualWeight * result.actualReps;
       }
     }
   }
-  return { completedSets, totalReps, totalVolume };
+  return { completedSets, totalReps, volumeByUnitId };
 }
 
 export function hasAnyProgress(workout: ProgramWorkout, results: SessionResultsMap): boolean {
