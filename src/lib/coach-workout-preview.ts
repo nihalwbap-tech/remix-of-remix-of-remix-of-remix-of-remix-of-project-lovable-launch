@@ -3,9 +3,7 @@ import type {
   WorkoutExercisePrescription,
   WorkoutSetPrescription,
 } from "./coach-workouts";
-
-export const DEFAULT_REST_SECONDS = 90;
-export const DEFAULT_CHALLENGE_FALLBACK_REPS = 30;
+import { DEFAULT_REST_SECONDS } from "./coach-workouts";
 
 export type PreviewSetResult = {
   exerciseInstanceId: string;
@@ -31,21 +29,20 @@ export function resultKey(exerciseInstanceId: string, setId: string): string {
   return `${exerciseInstanceId}::${setId}`;
 }
 
-export function clampNonNegative(n: number): number {
-  if (!Number.isFinite(n) || n < 0) return 0;
-  return n;
+export function clampNonNegative(number: number): number {
+  if (!Number.isFinite(number) || number < 0) return 0;
+  return number;
 }
 
 export function initSessionResults(workout: ProgramWorkout): SessionResultsMap {
   const map: SessionResultsMap = {};
-  for (const ex of workout.exercises) {
-    for (const set of ex.sets) {
-      const isChallenge = set.setType === "challenge";
-      map[resultKey(ex.id, set.id)] = {
-        exerciseInstanceId: ex.id,
+  for (const exercise of workout.exercises) {
+    for (const set of exercise.sets) {
+      map[resultKey(exercise.id, set.id)] = {
+        exerciseInstanceId: exercise.id,
         setId: set.id,
         actualWeight: clampNonNegative(set.targetWeight ?? 0),
-        actualReps: isChallenge ? 0 : clampNonNegative(set.targetReps ?? 0),
+        actualReps: 0,
         completed: false,
       };
     }
@@ -72,46 +69,38 @@ export function flattenSets(workout: ProgramWorkout): FlatSetRef[] {
 }
 
 export function hasAnyValidSet(workout: ProgramWorkout): boolean {
-  return workout.exercises.some((e) => e.sets.length > 0);
+  return workout.exercises.some((exercise) => exercise.sets.length > 0);
 }
 
 export function restSecondsFor(set: WorkoutSetPrescription): number {
   return clampNonNegative(set.restSeconds ?? DEFAULT_REST_SECONDS);
 }
 
-export function challengeTargetFor(set: WorkoutSetPrescription): number {
-  const raw = set.challengeTargetReps ?? set.targetReps ?? DEFAULT_CHALLENGE_FALLBACK_REPS;
-  const clamped = clampNonNegative(raw);
-  return clamped > 0 ? clamped : DEFAULT_CHALLENGE_FALLBACK_REPS;
-}
-
 export function formatElapsed(seconds: number): string {
-  const s = Math.max(0, Math.floor(seconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  const pad = (n: number) => n.toString().padStart(2, "0");
-  return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+  const normalized = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(normalized / 3600);
+  const minutes = Math.floor((normalized % 3600) / 60);
+  const remainingSeconds = normalized % 60;
+  const pad = (number: number) => number.toString().padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(remainingSeconds)}`
+    : `${minutes}:${pad(remainingSeconds)}`;
 }
 
 export function computeSummary(
   workout: ProgramWorkout,
   results: SessionResultsMap,
-): {
-  completedSets: number;
-  totalReps: number;
-  totalVolume: number;
-} {
+): { completedSets: number; totalReps: number; totalVolume: number } {
   let completedSets = 0;
   let totalReps = 0;
   let totalVolume = 0;
-  for (const ex of workout.exercises) {
-    for (const set of ex.sets) {
-      const r = results[resultKey(ex.id, set.id)];
-      if (r?.completed) {
+  for (const exercise of workout.exercises) {
+    for (const set of exercise.sets) {
+      const result = results[resultKey(exercise.id, set.id)];
+      if (result?.completed) {
         completedSets += 1;
-        totalReps += r.actualReps;
-        totalVolume += r.actualWeight * r.actualReps;
+        totalReps += result.actualReps;
+        totalVolume += result.actualWeight * result.actualReps;
       }
     }
   }
@@ -119,24 +108,22 @@ export function computeSummary(
 }
 
 export function hasAnyProgress(workout: ProgramWorkout, results: SessionResultsMap): boolean {
-  for (const ex of workout.exercises) {
-    for (const set of ex.sets) {
-      const key = resultKey(ex.id, set.id);
-      const r = results[key];
-      if (!r) continue;
-      if (r.completed) return true;
-      const targetW = clampNonNegative(set.targetWeight ?? 0);
-      const initialReps = set.setType === "challenge" ? 0 : clampNonNegative(set.targetReps ?? 0);
-      if (r.actualWeight !== targetW || r.actualReps !== initialReps) return true;
+  for (const exercise of workout.exercises) {
+    for (const set of exercise.sets) {
+      const result = results[resultKey(exercise.id, set.id)];
+      if (!result) continue;
+      if (result.completed || result.actualReps !== 0) return true;
+      const targetWeight = clampNonNegative(set.targetWeight ?? 0);
+      if (result.actualWeight !== targetWeight) return true;
     }
   }
   return false;
 }
 
 export function firstIncompleteIndex(flat: FlatSetRef[], results: SessionResultsMap): number {
-  for (let i = 0; i < flat.length; i += 1) {
-    const r = results[resultKey(flat[i].exerciseInstanceId, flat[i].setId)];
-    if (!r?.completed) return i;
+  for (let index = 0; index < flat.length; index += 1) {
+    const result = results[resultKey(flat[index].exerciseInstanceId, flat[index].setId)];
+    if (!result?.completed) return index;
   }
-  return flat.length; // all complete
+  return flat.length;
 }
