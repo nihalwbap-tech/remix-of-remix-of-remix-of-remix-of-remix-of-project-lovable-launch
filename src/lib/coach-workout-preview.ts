@@ -40,11 +40,12 @@ export function initSessionResults(workout: ProgramWorkout): SessionResultsMap {
   const map: SessionResultsMap = {};
   for (const ex of workout.exercises) {
     for (const set of ex.sets) {
+      const isChallenge = set.setType === "challenge";
       map[resultKey(ex.id, set.id)] = {
         exerciseInstanceId: ex.id,
         setId: set.id,
         actualWeight: clampNonNegative(set.targetWeight ?? 0),
-        actualReps: clampNonNegative(set.targetReps ?? 0),
+        actualReps: isChallenge ? 0 : clampNonNegative(set.targetReps ?? 0),
         completed: false,
       };
     }
@@ -125,8 +126,8 @@ export function hasAnyProgress(workout: ProgramWorkout, results: SessionResultsM
       if (!r) continue;
       if (r.completed) return true;
       const targetW = clampNonNegative(set.targetWeight ?? 0);
-      const targetR = clampNonNegative(set.targetReps ?? 0);
-      if (r.actualWeight !== targetW || r.actualReps !== targetR) return true;
+      const initialReps = set.setType === "challenge" ? 0 : clampNonNegative(set.targetReps ?? 0);
+      if (r.actualWeight !== targetW || r.actualReps !== initialReps) return true;
     }
   }
   return false;

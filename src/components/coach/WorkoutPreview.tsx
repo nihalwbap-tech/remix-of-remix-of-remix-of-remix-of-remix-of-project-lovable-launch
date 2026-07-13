@@ -644,6 +644,9 @@ function GuidedMode({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
+  const [challengeResetSignal, setChallengeResetSignal] = useState(0);
+  const bumpChallengeReset = () => setChallengeResetSignal((n) => n + 1);
+
   if (index >= flat.length) return null;
 
   const advance = () => {
@@ -669,6 +672,31 @@ function GuidedMode({
 
   const subtitle = `Set ${index + 1} of ${flat.length}`;
 
+  const resumeAfterRest = () => {
+    // Start search from current index so an incomplete challenge stays put.
+    const startFrom = currentResult?.completed ? index + 1 : index;
+    const nextIdx = findNextIncomplete(flat, results, startFrom);
+    if (nextIdx >= flat.length) {
+      onFinish();
+      return;
+    }
+    setInRest(false);
+    if (nextIdx !== index) {
+      setIndex(nextIdx);
+    }
+  };
+
+  const isChallengeInProgress =
+    currentRef.set.setType === "challenge" && !(currentResult?.completed ?? false);
+  const challengeTarget = challengeTargetFor(currentRef.set);
+  const challengeRemaining = Math.max(
+    0,
+    challengeTarget - clampNonNegative(currentResult?.actualReps ?? 0),
+  );
+  const restNextInfo = isChallengeInProgress
+    ? `Same challenge continues · ${challengeRemaining} rep${challengeRemaining === 1 ? "" : "s"} to go`
+    : describeNext(flat, results, index, exercisesById);
+
   return (
     <>
       <PreviewHeader
@@ -681,15 +709,17 @@ function GuidedMode({
       {inRest ? (
         <RestPanel
           restSeconds={restSecondsFor(currentRef.set)}
-          nextInfo={describeNext(flat, results, index, exercisesById)}
-          onDone={advance}
-          onSkip={advance}
+          nextInfo={restNextInfo}
+          nextLabel={isChallengeInProgress ? "Start next attempt" : "Start next set"}
+          onDone={resumeAfterRest}
+          onSkip={resumeAfterRest}
         />
       ) : (
         <PerformPanel
           ref_={currentRef}
           def={def}
           result={currentResult}
+          resetSignal={challengeResetSignal}
           onWeight={(v) =>
             dispatch({
               type: "set-result",
@@ -721,18 +751,27 @@ function GuidedMode({
           }}
           onLogChallengeAttempt={(reps) => {
             const target = challengeTargetFor(currentRef.set);
+            const addReps = clampNonNegative(reps);
+            const cumulative = clampNonNegative(currentResult?.actualReps ?? 0) + addReps;
+            const willBeDone = cumulative >= target;
             dispatch({ type: "add-challenge-reps", key, reps, target });
             const restSec = restSecondsFor(currentRef.set);
-            const willBeDone = (currentResult?.actualReps ?? 0) + clampNonNegative(reps) >= target;
             if (willBeDone) {
+              if (restSec > 0) {
+                setInRest(true);
+                return;
+              }
               const nextIdx = findNextIncomplete(flat, results, index + 1);
               if (nextIdx >= flat.length) {
                 onFinish();
                 return;
               }
-              if (restSec > 0) setInRest(true);
-              else setIndex(nextIdx);
-            } else if (restSec > 0) {
+              setIndex(nextIdx);
+              return;
+            }
+            // Not done — stay on this challenge set and reset the attempt input.
+            bumpChallengeReset();
+            if (restSec > 0) {
               setInRest(true);
             }
           }}
@@ -776,6 +815,7 @@ function PerformPanel({
   ref_,
   def,
   result,
+  resetSignal,
   onWeight,
   onReps,
   onComplete,
@@ -785,6 +825,7 @@ function PerformPanel({
   ref_: FlatSetRef;
   def: Exercise | undefined;
   result: PreviewSetResult | undefined;
+  resetSignal: number;
   onWeight: (n: number) => void;
   onReps: (n: number) => void;
   onComplete: () => void;
@@ -794,7 +835,7 @@ function PerformPanel({
   const [challengeAttempt, setChallengeAttempt] = useState<number>(0);
   useEffect(() => {
     setChallengeAttempt(0);
-  }, [ref_.setId]);
+  }, [ref_.setId, resetSignal]);
 
   if (!result) return null;
 
@@ -971,11 +1012,13 @@ function RepsStepper({
 function RestPanel({
   restSeconds,
   nextInfo,
+  nextLabel = "Start next set",
   onDone,
   onSkip,
 }: {
   restSeconds: number;
   nextInfo: string;
+  nextLabel?: string;
   onDone: () => void;
   onSkip: () => void;
 }) {
@@ -1040,7 +1083,7 @@ function RestPanel({
       {done && (
         <Button className="w-full max-w-xs" onClick={onDone}>
           <Pause className="h-4 w-4 rotate-90" aria-hidden="true" />
-          Start next set
+          {nextLabel}
         </Button>
       )}
     </div>
