@@ -790,7 +790,6 @@ function GuidedMode({
   );
 }
 
-
 function findNextIncomplete(flat: FlatSetRef[], results: SessionResultsMap, from: number): number {
   for (let i = from; i < flat.length; i += 1) {
     const r = results[resultKey(flat[i].exerciseInstanceId, flat[i].setId)];
@@ -837,7 +836,6 @@ function PerformPanel({
   useEffect(() => {
     setChallengeAttempt(0);
   }, [ref_.setId, resetSignal]);
-
 
   if (!result) return null;
 
@@ -1024,7 +1022,6 @@ function RestPanel({
   onDone: () => void;
   onSkip: () => void;
 }) {
-
   const [remaining, setRemaining] = useState(restSeconds);
   const remainingRef = useRef(remaining);
   remainingRef.current = remaining;
@@ -1089,7 +1086,6 @@ function RestPanel({
           {nextLabel}
         </Button>
       )}
-
     </div>
   );
 }

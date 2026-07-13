@@ -53,7 +53,6 @@ export function initSessionResults(workout: ProgramWorkout): SessionResultsMap {
   return map;
 }
 
-
 export function flattenSets(workout: ProgramWorkout): FlatSetRef[] {
   const flat: FlatSetRef[] = [];
   workout.exercises.forEach((exercise, exerciseIndex) => {
@@ -127,10 +126,8 @@ export function hasAnyProgress(workout: ProgramWorkout, results: SessionResultsM
       if (!r) continue;
       if (r.completed) return true;
       const targetW = clampNonNegative(set.targetWeight ?? 0);
-      const initialReps =
-        set.setType === "challenge" ? 0 : clampNonNegative(set.targetReps ?? 0);
+      const initialReps = set.setType === "challenge" ? 0 : clampNonNegative(set.targetReps ?? 0);
       if (r.actualWeight !== targetW || r.actualReps !== initialReps) return true;
-
     }
   }
   return false;
