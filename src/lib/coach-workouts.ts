@@ -99,8 +99,7 @@ function normalizeExercise(value: unknown): WorkoutExercisePrescription | null {
   return {
     id: v.id,
     exerciseId: v.exerciseId,
-    notes:
-      typeof v.notes === "string" && v.notes.trim().length > 0 ? v.notes : undefined,
+    notes: typeof v.notes === "string" && v.notes.trim().length > 0 ? v.notes : undefined,
     sets,
   };
 }
@@ -121,9 +120,7 @@ function normalizeWorkout(value: unknown): ProgramWorkout | null {
     return null;
   }
   const exercises = Array.isArray(v.exercises)
-    ? v.exercises
-        .map(normalizeExercise)
-        .filter((e): e is WorkoutExercisePrescription => e !== null)
+    ? v.exercises.map(normalizeExercise).filter((e): e is WorkoutExercisePrescription => e !== null)
     : [];
   return {
     id: v.id,

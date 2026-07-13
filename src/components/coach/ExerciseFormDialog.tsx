@@ -68,9 +68,7 @@ export function ExerciseFormDialog({
       return;
     }
     if (descriptionText.length > EXERCISE_DESCRIPTION_MAX_LENGTH) {
-      setError(
-        `Description must be ${EXERCISE_DESCRIPTION_MAX_LENGTH} characters or fewer.`,
-      );
+      setError(`Description must be ${EXERCISE_DESCRIPTION_MAX_LENGTH} characters or fewer.`);
       return;
     }
     onCreate({

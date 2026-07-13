@@ -106,11 +106,7 @@ export function ProgramWorkoutsSection({ programId }: { programId: string }) {
         </ul>
       )}
 
-      <CreateWorkoutDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onCreate={handleCreate}
-      />
+      <CreateWorkoutDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreate={handleCreate} />
 
       <Dialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <DialogContent className="sm:max-w-sm">

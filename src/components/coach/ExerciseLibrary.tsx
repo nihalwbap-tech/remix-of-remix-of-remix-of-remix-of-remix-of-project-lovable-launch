@@ -101,20 +101,14 @@ export function ExerciseLibrary() {
         </ul>
       )}
 
-      <ExerciseFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onCreate={handleCreate}
-      />
+      <ExerciseFormDialog open={dialogOpen} onOpenChange={setDialogOpen} onCreate={handleCreate} />
 
       <Dialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete exercise?</DialogTitle>
             <DialogDescription>
-              {pendingDelete
-                ? `"${pendingDelete.name}" will be removed from your library.`
-                : ""}
+              {pendingDelete ? `"${pendingDelete.name}" will be removed from your library.` : ""}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -152,9 +146,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 function NoResultsState({ query }: { query: string }) {
   return (
     <div className="rounded-lg border border-dashed border-border p-8 text-center">
-      <p className="text-sm text-muted-foreground">
-        No exercises match &ldquo;{query}&rdquo;.
-      </p>
+      <p className="text-sm text-muted-foreground">No exercises match &ldquo;{query}&rdquo;.</p>
     </div>
   );
 }
@@ -194,4 +186,3 @@ function ExerciseRow({ exercise, onDelete }: { exercise: Exercise; onDelete: () 
     </div>
   );
 }
-

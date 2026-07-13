@@ -12,11 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -56,13 +52,7 @@ import {
 } from "@/lib/coach-workouts";
 import { ExerciseFormDialog, type ExerciseFormValues } from "./ExerciseFormDialog";
 
-export function WorkoutBuilder({
-  programId,
-  workoutId,
-}: {
-  programId: string;
-  workoutId: string;
-}) {
+export function WorkoutBuilder({ programId, workoutId }: { programId: string; workoutId: string }) {
   const [workouts, setWorkouts] = useState<ProgramWorkout[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [hydrated, setHydrated] = useState(false);
@@ -89,9 +79,7 @@ export function WorkoutBuilder({
   if (!workout) return <WorkoutNotFound programId={programId} />;
 
   const update = (fn: (w: ProgramWorkout) => ProgramWorkout) => {
-    setWorkouts((prev) =>
-      prev.map((w) => (w.id === workoutId ? touchWorkout(fn(w)) : w)),
-    );
+    setWorkouts((prev) => prev.map((w) => (w.id === workoutId ? touchWorkout(fn(w)) : w)));
   };
 
   const addExercises = (ids: string[]) => {
@@ -201,13 +189,7 @@ export function WorkoutBuilder({
   );
 }
 
-function WorkoutTitle({
-  name,
-  onRename,
-}: {
-  name: string;
-  onRename: (name: string) => void;
-}) {
+function WorkoutTitle({ name, onRename }: { name: string; onRename: (name: string) => void }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(name);
   const [error, setError] = useState<string | null>(null);
@@ -354,9 +336,7 @@ function ExercisePicker({
   }, [exercises]);
 
   const toggle = (id: string) => {
-    setSelected((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   };
 
   const handleAdd = () => {
@@ -380,9 +360,7 @@ function ExercisePicker({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent
-          className="flex h-[92dvh] w-full max-w-full flex-col gap-0 rounded-b-none border-0 p-0 top-auto bottom-0 left-0 translate-x-0 translate-y-0 sm:top-1/2 sm:left-1/2 sm:bottom-auto sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:border"
-        >
+        <DialogContent className="flex h-[92dvh] w-full max-w-full flex-col gap-0 rounded-b-none border-0 p-0 top-auto bottom-0 left-0 translate-x-0 translate-y-0 sm:top-1/2 sm:left-1/2 sm:bottom-auto sm:h-auto sm:max-h-[85vh] sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:border">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <DialogTitle className="text-base font-semibold">Add exercises</DialogTitle>
             {/* Radix Dialog auto-provides a close button */}
@@ -437,10 +415,7 @@ function ExercisePicker({
                             {e.name}
                           </div>
                           {e.tags.length > 0 && (
-                            <ul
-                              className="mt-1.5 flex flex-wrap gap-1"
-                              aria-label="Tags"
-                            >
+                            <ul className="mt-1.5 flex flex-wrap gap-1" aria-label="Tags">
                               {e.tags.map((t) => (
                                 <li
                                   key={t}
@@ -461,9 +436,7 @@ function ExercisePicker({
                               : "border-border")
                           }
                         >
-                          {isSelected && (
-                            <Check className="h-3 w-3" aria-hidden="true" />
-                          )}
+                          {isSelected && <Check className="h-3 w-3" aria-hidden="true" />}
                         </span>
                       </button>
                     </li>
@@ -487,10 +460,7 @@ function ExercisePicker({
 
           <div className="border-t border-border bg-background px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {selected.length > 0 && (
-              <ul
-                className="mb-3 flex flex-wrap gap-1.5"
-                aria-label="Selected exercises"
-              >
+              <ul className="mb-3 flex flex-wrap gap-1.5" aria-label="Selected exercises">
                 {selected.map((id) => {
                   const ex = exercisesById.get(id);
                   if (!ex) return null;
@@ -522,11 +492,7 @@ function ExercisePicker({
         </DialogContent>
       </Dialog>
 
-      <ExerciseFormDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreate={handleCreated}
-      />
+      <ExerciseFormDialog open={createOpen} onOpenChange={setCreateOpen} onCreate={handleCreated} />
     </>
   );
 }
@@ -696,10 +662,7 @@ function SetRow({
 
       <div className="mt-2 grid grid-cols-2 gap-2">
         <div className="space-y-1">
-          <Label
-            htmlFor={`weight-${set.id}`}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Label htmlFor={`weight-${set.id}`} className="text-xs font-medium text-muted-foreground">
             Weight
           </Label>
           <Input
@@ -713,10 +676,7 @@ function SetRow({
           />
         </div>
         <div className="space-y-1">
-          <Label
-            htmlFor={`reps-${set.id}`}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Label htmlFor={`reps-${set.id}`} className="text-xs font-medium text-muted-foreground">
             Reps
           </Label>
           <Input
@@ -764,10 +724,7 @@ function SetRow({
           </Select>
         </div>
         <div className="space-y-1">
-          <Label
-            htmlFor={`rest-${set.id}`}
-            className="text-xs font-medium text-muted-foreground"
-          >
+          <Label htmlFor={`rest-${set.id}`} className="text-xs font-medium text-muted-foreground">
             Rest (sec)
           </Label>
           <Input
@@ -796,9 +753,7 @@ function SetRow({
               step="1"
               min="1"
               value={set.challengeTargetReps ?? ""}
-              onChange={(e) =>
-                onChange({ challengeTargetReps: numberOrUndef(e.target.value) })
-              }
+              onChange={(e) => onChange({ challengeTargetReps: numberOrUndef(e.target.value) })}
               className="h-9"
             />
           </div>
@@ -807,4 +762,3 @@ function SetRow({
     </div>
   );
 }
-
