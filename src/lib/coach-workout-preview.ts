@@ -127,8 +127,10 @@ export function hasAnyProgress(workout: ProgramWorkout, results: SessionResultsM
       if (!r) continue;
       if (r.completed) return true;
       const targetW = clampNonNegative(set.targetWeight ?? 0);
-      const targetR = clampNonNegative(set.targetReps ?? 0);
-      if (r.actualWeight !== targetW || r.actualReps !== targetR) return true;
+      const initialReps =
+        set.setType === "challenge" ? 0 : clampNonNegative(set.targetReps ?? 0);
+      if (r.actualWeight !== targetW || r.actualReps !== initialReps) return true;
+
     }
   }
   return false;
