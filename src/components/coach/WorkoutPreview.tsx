@@ -1014,14 +1014,17 @@ function RepsStepper({
 function RestPanel({
   restSeconds,
   nextInfo,
+  nextLabel = "Start next set",
   onDone,
   onSkip,
 }: {
   restSeconds: number;
   nextInfo: string;
+  nextLabel?: string;
   onDone: () => void;
   onSkip: () => void;
 }) {
+
   const [remaining, setRemaining] = useState(restSeconds);
   const remainingRef = useRef(remaining);
   remainingRef.current = remaining;
