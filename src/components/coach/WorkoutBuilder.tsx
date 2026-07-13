@@ -59,6 +59,7 @@ export function WorkoutBuilder({ programId, workoutId }: { programId: string; wo
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     setWorkouts(loadWorkouts());
@@ -142,9 +143,24 @@ export function WorkoutBuilder({ programId, workoutId }: { programId: string; wo
         Back to program
       </Link>
 
-      <div>
+      <div className="space-y-3">
         <WorkoutTitle name={workout.name} onRename={renameWorkout} />
-        <p className="mt-1 text-xs text-muted-foreground">Changes save automatically.</p>
+        <p className="text-xs text-muted-foreground">Changes save automatically.</p>
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full sm:w-auto"
+          disabled={!hasAnyValidSet(workout)}
+          onClick={() =>
+            void navigate({
+              to: "/coach/programs/$programId/workouts/$workoutId/preview",
+              params: { programId, workoutId },
+            })
+          }
+        >
+          <PlayCircle className="h-4 w-4" aria-hidden="true" />
+          Preview workout
+        </Button>
       </div>
 
       {workout.exercises.length === 0 ? (
